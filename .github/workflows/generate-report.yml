@@ -1,4 +1,4 @@
-name: Generate Optimization Report
+name: Generate and Deploy Report
 
 on:
   schedule:
@@ -15,8 +15,6 @@ jobs:
     
     permissions:
       contents: write
-      pages: write
-      id-token: write
     
     steps:
       - name: Checkout repository
@@ -45,112 +43,37 @@ jobs:
           mkdir -p reports
           npm start
       
-      - name: Copy report to docs folder for GitHub Pages
+      - name: Copy report to public folder
         run: |
-          mkdir -p docs
+          mkdir -p public
           # Find the most recent report
           LATEST_REPORT=$(ls -t reports/*.html | head -1)
           if [ -f "$LATEST_REPORT" ]; then
-            cp "$LATEST_REPORT" docs/index.html
-            echo "Report copied to docs/index.html"
+            cp "$LATEST_REPORT" public/index.html
+            echo "Report copied to public/index.html"
           else
             echo "No report found!"
             exit 1
           fi
       
-      - name: Create report history
-        run: |
-          # Keep last 7 reports
-          cd reports
-          ls -t *.html | tail -n +8 | xargs -r rm
-          cd ..
-          cp -r reports docs/history || true
-          
-          # Create an index page with links to historical reports
-          cat > docs/history.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <title>Report History</title>
-              <style>
-                  body {
-                      font-family: Arial, sans-serif;
-                      max-width: 800px;
-                      margin: 50px auto;
-                      padding: 20px;
-                  }
-                  h1 {
-                      color: #667eea;
-                  }
-                  .report-list {
-                      list-style: none;
-                      padding: 0;
-                  }
-                  .report-list li {
-                      margin: 10px 0;
-                      padding: 10px;
-                      background: #f5f5f5;
-                      border-radius: 5px;
-                  }
-                  .report-list a {
-                      color: #667eea;
-                      text-decoration: none;
-                      font-weight: bold;
-                  }
-                  .report-list a:hover {
-                      text-decoration: underline;
-                  }
-                  .back-link {
-                      margin-top: 20px;
-                  }
-              </style>
-          </head>
-          <body>
-              <h1>📊 Optimization Report History</h1>
-              <ul class="report-list">
-          EOF
-          
-          if [ -d "docs/history" ]; then
-            for report in docs/history/*.html; do
-              if [ -f "$report" ]; then
-                filename=$(basename "$report")
-                echo "<li><a href=\"history/$filename\">$filename</a></li>" >> docs/history.html
-              fi
-            done
-          fi
-          
-          cat >> docs/history.html << 'EOF'
-              </ul>
-              <div class="back-link">
-                  <a href="index.html">← Back to Latest Report</a>
-              </div>
-          </body>
-          </html>
-          EOF
-      
-      - name: Add link to history in main report
-        run: |
-          # Add a link to history in the main report
-          sed -i 's|</body>|<div style="position: fixed; bottom: 20px; right: 20px; background: #667eea; padding: 10px 20px; border-radius: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);"><a href="history.html" style="color: white; text-decoration: none; font-weight: bold;">📜 View History</a></div></body>|' docs/index.html
-      
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-        with:
-          enablement: true
-      
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./docs
-      
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-      
-      - name: Commit reports to repository
+      - name: Commit report to repository
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add docs/
+          git add public/
           git diff --staged --quiet || git commit -m "Update optimization report - $(date '+%Y-%m-%d %H:%M:%S')"
           git push origin main || true
+      
+      - name: Trigger Vercel Deploy
+        run: |
+          if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK }}" ]; then
+            curl -X POST ${{ secrets.VERCEL_DEPLOY_HOOK }}
+            echo "✅ Vercel deployment triggered successfully"
+          else
+            echo "⚠️ VERCEL_DEPLOY_HOOK secret not set"
+            echo "To set up automatic deployments:"
+            echo "1. Go to your Vercel project settings"
+            echo "2. Navigate to Git > Deploy Hooks"
+            echo "3. Create a deploy hook"
+            echo "4. Add it as VERCEL_DEPLOY_HOOK secret in GitHub"
+          fi

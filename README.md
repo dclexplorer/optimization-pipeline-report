@@ -2,7 +2,7 @@
 
 A TypeScript/Node.js application that generates interactive HTML reports for the Decentraland world's asset optimization pipeline.
 
-🌐 **Live Report**: Deploy on Vercel for automatic updates!
+🌐 **Live Report**: Automatically deployed to Vercel every 24 hours!
 
 ## Features
 
@@ -16,31 +16,33 @@ A TypeScript/Node.js application that generates interactive HTML reports for the
   - Report Status View: Displays report availability
 - **Detailed Statistics**: Comprehensive metrics about the world and optimization coverage
 
-## Deployment Options
+## Deployment
 
-### Vercel Deployment (Recommended)
+### Vercel Setup
 
 1. **Deploy to Vercel**:
    ```bash
    npx vercel
    ```
 
-2. **Set Environment Variables** in Vercel Dashboard:
+2. **Create Deploy Hook**:
+   - Go to your Vercel project settings
+   - Navigate to Git > Deploy Hooks
+   - Create a deploy hook
+   - Add the hook URL as `VERCEL_DEPLOY_HOOK` secret in GitHub
+
+3. **Add GitHub Secrets**:
    - `S3_ACCESS_KEY_ID`
    - `S3_SECRET_ACCESS_KEY`
    - `S3_ENDPOINT`
    - `S3_BUCKET`
    - `S3_REGION`
+   - `VERCEL_DEPLOY_HOOK`
 
-3. **Automatic Rebuilds**:
-   - Create a Deploy Hook in Vercel project settings
-   - Add the hook URL as `VERCEL_DEPLOY_HOOK` secret in GitHub
-   - The report will rebuild daily at 00:00 UTC
-
-### GitHub Pages Deployment
-
-The report can also be deployed to GitHub Pages using the included workflow.
-Reports are generated daily at 00:00 UTC and deployed automatically.
+The GitHub Action will:
+- Build the report daily at 00:00 UTC
+- Commit the report to the `public/` folder
+- Trigger Vercel deployment via webhook
 
 ## Local Development
 
@@ -78,8 +80,7 @@ The project uses GitHub Actions for continuous deployment:
 
 - **Schedule**: Runs daily at 00:00 UTC
 - **Manual Trigger**: Can be triggered manually from GitHub Actions tab
-- **Auto-Deploy**: Pushes reports to GitHub Pages automatically
-- **History**: Keeps last 7 reports for historical reference
+- **Auto-Deploy**: Commits reports and triggers Vercel deployment
 
 ### GitHub Actions Workflow
 
@@ -87,8 +88,8 @@ The workflow:
 1. Fetches world data from Decentraland API
 2. Checks optimization status using S3 API
 3. Generates interactive HTML report
-4. Deploys to GitHub Pages
-5. Maintains report history
+4. Commits report to `public/` folder
+5. Triggers Vercel deployment
 
 ## Report Features
 
@@ -116,7 +117,7 @@ The workflow:
 - **TypeScript/Node.js**: Core application
 - **AWS SDK**: S3 integration for optimization checking
 - **GitHub Actions**: CI/CD pipeline
-- **GitHub Pages**: Static hosting
+- **Vercel**: Static hosting
 - **Canvas API**: Map visualization
 
 ## Repository Structure
@@ -131,7 +132,7 @@ The workflow:
 ├── .github/
 │   └── workflows/     # GitHub Actions
 ├── reports/           # Generated reports (local)
-└── docs/             # GitHub Pages deployment
+└── public/            # Vercel deployment
 ```
 
 ## Contributing
