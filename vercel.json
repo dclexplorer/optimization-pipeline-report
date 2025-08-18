@@ -1,5 +1,16 @@
 {
-  "buildCommand": "mkdir -p public && echo '<!DOCTYPE html><html><head><title>Optimization Report</title></head><body><h1>Report will be available after first GitHub Action run</h1><p>The optimization report will be generated and deployed here automatically.</p></body></html>' > public/index.html",
-  "outputDirectory": "public",
-  "framework": null
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 10
+    },
+    "api/upload-report.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/api"
+    }
+  ]
 }

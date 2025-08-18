@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
-      contents: write
+      contents: read
     
     steps:
       - name: Checkout repository
@@ -43,37 +43,47 @@ jobs:
           mkdir -p reports
           npm start
       
-      - name: Copy report to public folder
+      - name: Upload report to Vercel
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+          UPLOAD_SECRET: ${{ secrets.UPLOAD_SECRET }}
         run: |
-          mkdir -p public
           # Find the most recent report
           LATEST_REPORT=$(ls -t reports/*.html | head -1)
+          
           if [ -f "$LATEST_REPORT" ]; then
-            cp "$LATEST_REPORT" public/index.html
-            echo "Report copied to public/index.html"
+            echo "📤 Uploading report to Vercel..."
+            
+            # Read the HTML content
+            HTML_CONTENT=$(cat "$LATEST_REPORT")
+            TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            
+            # Create JSON payload
+            JSON_PAYLOAD=$(jq -n \
+              --arg html "$HTML_CONTENT" \
+              --arg timestamp "$TIMESTAMP" \
+              '{html: $html, timestamp: $timestamp}')
+            
+            # Upload to Vercel
+            RESPONSE=$(curl -X POST \
+              "${VERCEL_URL}/api/upload-report" \
+              -H "Content-Type: application/json" \
+              -H "X-Auth-Token: ${UPLOAD_SECRET}" \
+              -d "$JSON_PAYLOAD" \
+              -w "\nHTTP_STATUS:%{http_code}")
+            
+            HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
+            BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS")
+            
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ Report uploaded successfully!"
+              echo "Response: $BODY"
+            else
+              echo "❌ Failed to upload report. Status: $HTTP_STATUS"
+              echo "Response: $BODY"
+              exit 1
+            fi
           else
-            echo "No report found!"
+            echo "❌ No report found!"
             exit 1
-          fi
-      
-      - name: Commit report to repository
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add public/
-          git diff --staged --quiet || git commit -m "Update optimization report - $(date '+%Y-%m-%d %H:%M:%S')"
-          git push origin main || true
-      
-      - name: Trigger Vercel Deploy
-        run: |
-          if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK }}" ]; then
-            curl -X POST ${{ secrets.VERCEL_DEPLOY_HOOK }}
-            echo "✅ Vercel deployment triggered successfully"
-          else
-            echo "⚠️ VERCEL_DEPLOY_HOOK secret not set"
-            echo "To set up automatic deployments:"
-            echo "1. Go to your Vercel project settings"
-            echo "2. Navigate to Git > Deploy Hooks"
-            echo "3. Create a deploy hook"
-            echo "4. Add it as VERCEL_DEPLOY_HOOK secret in GitHub"
           fi
