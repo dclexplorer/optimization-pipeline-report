@@ -1,15 +1,13 @@
-// Vercel serverless function to receive and store the report from GitHub Actions
+// Vercel serverless function to receive and store the report using Blob Storage
+import { put, list, del } from '@vercel/blob';
+
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb',
+      sizeLimit: '50kb', // Small limit since we're just receiving metadata
     },
   },
 };
-
-// We'll use Vercel KV or Edge Config for simpler storage
-// For now, using in-memory storage (will reset on redeploy)
-let storedReport = null;
 
 export default async function handler(req, res) {
   // Enable CORS for GitHub Actions
@@ -35,33 +33,57 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { html, timestamp } = req.body;
+    const { url, timestamp } = req.body;
 
-    if (!html) {
-      return res.status(400).json({ error: 'No HTML content provided' });
+    if (!url) {
+      return res.status(400).json({ error: 'No URL provided' });
     }
 
-    // Store the report in memory (or you could use Vercel Blob/KV)
-    storedReport = {
-      html,
-      timestamp: timestamp || new Date().toISOString(),
-      uploadedAt: new Date().toISOString()
-    };
+    // Fetch the HTML content from the provided URL
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch report from URL: ${response.statusText}`);
+    }
 
-    // If using Vercel Blob Storage (optional, requires @vercel/blob package):
-    // const { put } = require('@vercel/blob');
-    // await put('report.html', html, { access: 'public' });
+    const html = await response.text();
+
+    // Clean up old reports (keep only the latest)
+    try {
+      const { blobs } = await list({ prefix: 'report-' });
+      for (const blob of blobs) {
+        await del(blob.url);
+      }
+    } catch (e) {
+      console.log('No previous reports to clean up');
+    }
+
+    // Store the new report in Blob Storage
+    const blob = await put(`report-latest.html`, html, {
+      access: 'public',
+      contentType: 'text/html',
+      addRandomSuffix: false,
+    });
+
+    // Also store metadata
+    await put(`report-metadata.json`, JSON.stringify({
+      timestamp: timestamp || new Date().toISOString(),
+      uploadedAt: new Date().toISOString(),
+      size: html.length,
+      blobUrl: blob.url
+    }), {
+      access: 'public',
+      contentType: 'application/json',
+      addRandomSuffix: false,
+    });
 
     res.status(200).json({ 
       success: true, 
-      message: 'Report uploaded successfully',
-      timestamp: storedReport.timestamp
+      message: 'Report uploaded to Blob Storage successfully',
+      blobUrl: blob.url,
+      timestamp: timestamp || new Date().toISOString()
     });
   } catch (error) {
     console.error('Error uploading report:', error);
-    res.status(500).json({ error: 'Failed to upload report' });
+    res.status(500).json({ error: 'Failed to upload report: ' + error.message });
   }
 }
-
-// Export the stored report for the index function to use
-export { storedReport };

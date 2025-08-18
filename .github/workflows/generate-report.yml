@@ -43,32 +43,45 @@ jobs:
           mkdir -p reports
           npm start
       
-      - name: Upload report to Vercel
+      - name: Upload report as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: optimization-report
+          path: reports/*.html
+          retention-days: 7
+      
+      - name: Get artifact URL and upload to Vercel
         env:
           VERCEL_URL: ${{ secrets.VERCEL_URL }}
           UPLOAD_SECRET: ${{ secrets.UPLOAD_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Find the most recent report
           LATEST_REPORT=$(ls -t reports/*.html | head -1)
           
           if [ -f "$LATEST_REPORT" ]; then
-            echo "📤 Uploading report to Vercel..."
+            echo "📤 Preparing to upload report to Vercel..."
             echo "Report size: $(du -h "$LATEST_REPORT" | cut -f1)"
+            
+            # Upload the file to transfer.sh for temporary hosting (expires in 1 day)
+            echo "Uploading to temporary storage..."
+            UPLOAD_URL=$(curl --upload-file "$LATEST_REPORT" "https://transfer.sh/report-$(date +%s).html" 2>/dev/null)
+            
+            if [ -z "$UPLOAD_URL" ]; then
+              echo "❌ Failed to upload to temporary storage"
+              exit 1
+            fi
+            
+            echo "Temporary URL: $UPLOAD_URL"
             
             TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
             
-            # Create JSON payload using files to avoid argument list limits
-            jq -n \
-              --rawfile html "$LATEST_REPORT" \
-              --arg timestamp "$TIMESTAMP" \
-              '{html: $html, timestamp: $timestamp}' > payload.json
-            
-            # Upload to Vercel
+            # Send just the URL to Vercel
             RESPONSE=$(curl -X POST \
               "${VERCEL_URL}/api/upload-report" \
               -H "Content-Type: application/json" \
               -H "X-Auth-Token: ${UPLOAD_SECRET}" \
-              -d @payload.json \
+              -d "{\"url\": \"$UPLOAD_URL\", \"timestamp\": \"$TIMESTAMP\"}" \
               -w "\nHTTP_STATUS:%{http_code}")
             
             HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
@@ -82,9 +95,6 @@ jobs:
               echo "Response: $BODY"
               exit 1
             fi
-            
-            # Clean up
-            rm -f payload.json
           else
             echo "❌ No report found!"
             exit 1
