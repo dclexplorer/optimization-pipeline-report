@@ -53,23 +53,22 @@ jobs:
           
           if [ -f "$LATEST_REPORT" ]; then
             echo "📤 Uploading report to Vercel..."
+            echo "Report size: $(du -h "$LATEST_REPORT" | cut -f1)"
             
-            # Read the HTML content
-            HTML_CONTENT=$(cat "$LATEST_REPORT")
             TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
             
-            # Create JSON payload
-            JSON_PAYLOAD=$(jq -n \
-              --arg html "$HTML_CONTENT" \
+            # Create JSON payload using files to avoid argument list limits
+            jq -n \
+              --rawfile html "$LATEST_REPORT" \
               --arg timestamp "$TIMESTAMP" \
-              '{html: $html, timestamp: $timestamp}')
+              '{html: $html, timestamp: $timestamp}' > payload.json
             
             # Upload to Vercel
             RESPONSE=$(curl -X POST \
               "${VERCEL_URL}/api/upload-report" \
               -H "Content-Type: application/json" \
               -H "X-Auth-Token: ${UPLOAD_SECRET}" \
-              -d "$JSON_PAYLOAD" \
+              -d @payload.json \
               -w "\nHTTP_STATUS:%{http_code}")
             
             HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
@@ -83,6 +82,9 @@ jobs:
               echo "Response: $BODY"
               exit 1
             fi
+            
+            # Clean up
+            rm -f payload.json
           else
             echo "❌ No report found!"
             exit 1
