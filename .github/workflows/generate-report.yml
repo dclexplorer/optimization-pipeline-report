@@ -44,7 +44,7 @@ jobs:
           npm start
       
       - name: Upload report as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: optimization-report
           path: reports/*.html
