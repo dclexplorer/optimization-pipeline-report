@@ -4,7 +4,7 @@ import { S3OptimizationChecker } from './s3-client';
 
 const API_URL = 'https://peer.decentraland.org/content/entities/active';
 const OPTIMIZATION_URL = 'https://optimized-assets.dclexplorer.com/v1';
-const BATCH_SIZE = 50000;
+const BATCH_SIZE = process.env.CI ? 10000 : 50000; // Smaller batches in CI to avoid 500 errors
 const MIN_COORD = -175;
 const MAX_COORD = 175;
 
