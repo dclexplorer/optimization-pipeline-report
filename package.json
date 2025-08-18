@@ -1,0 +1,30 @@
+{
+  "name": "optimization-pipeline-report",
+  "version": "1.0.0",
+  "description": "Asset optimization pipeline report generator for Decentraland",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "generate": "npm run build && npm start"
+  },
+  "keywords": ["decentraland", "optimization", "report"],
+  "author": "DCL Explorer",
+  "license": "MIT",
+  "homepage": "https://dclexplorer.github.io/optimization-pipeline-report/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dclexplorer/optimization-pipeline-report.git"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.2"
+  }
+}

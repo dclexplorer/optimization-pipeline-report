@@ -1,0 +1,154 @@
+name: Generate Optimization Report
+
+on:
+  schedule:
+    # Run every 24 hours at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+  push:
+    branches:
+      - main
+
+jobs:
+  generate-and-deploy:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build TypeScript
+        run: npm run build
+      
+      - name: Generate report
+        env:
+          S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_REGION: ${{ secrets.S3_REGION }}
+        run: |
+          mkdir -p reports
+          npm start
+      
+      - name: Copy report to docs folder for GitHub Pages
+        run: |
+          mkdir -p docs
+          # Find the most recent report
+          LATEST_REPORT=$(ls -t reports/*.html | head -1)
+          if [ -f "$LATEST_REPORT" ]; then
+            cp "$LATEST_REPORT" docs/index.html
+            echo "Report copied to docs/index.html"
+          else
+            echo "No report found!"
+            exit 1
+          fi
+      
+      - name: Create report history
+        run: |
+          # Keep last 7 reports
+          cd reports
+          ls -t *.html | tail -n +8 | xargs -r rm
+          cd ..
+          cp -r reports docs/history || true
+          
+          # Create an index page with links to historical reports
+          cat > docs/history.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Report History</title>
+              <style>
+                  body {
+                      font-family: Arial, sans-serif;
+                      max-width: 800px;
+                      margin: 50px auto;
+                      padding: 20px;
+                  }
+                  h1 {
+                      color: #667eea;
+                  }
+                  .report-list {
+                      list-style: none;
+                      padding: 0;
+                  }
+                  .report-list li {
+                      margin: 10px 0;
+                      padding: 10px;
+                      background: #f5f5f5;
+                      border-radius: 5px;
+                  }
+                  .report-list a {
+                      color: #667eea;
+                      text-decoration: none;
+                      font-weight: bold;
+                  }
+                  .report-list a:hover {
+                      text-decoration: underline;
+                  }
+                  .back-link {
+                      margin-top: 20px;
+                  }
+              </style>
+          </head>
+          <body>
+              <h1>📊 Optimization Report History</h1>
+              <ul class="report-list">
+          EOF
+          
+          if [ -d "docs/history" ]; then
+            for report in docs/history/*.html; do
+              if [ -f "$report" ]; then
+                filename=$(basename "$report")
+                echo "<li><a href=\"history/$filename\">$filename</a></li>" >> docs/history.html
+              fi
+            done
+          fi
+          
+          cat >> docs/history.html << 'EOF'
+              </ul>
+              <div class="back-link">
+                  <a href="index.html">← Back to Latest Report</a>
+              </div>
+          </body>
+          </html>
+          EOF
+      
+      - name: Add link to history in main report
+        run: |
+          # Add a link to history in the main report
+          sed -i 's|</body>|<div style="position: fixed; bottom: 20px; right: 20px; background: #667eea; padding: 10px 20px; border-radius: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);"><a href="history.html" style="color: white; text-decoration: none; font-weight: bold;">📜 View History</a></div></body>|' docs/index.html
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs
+      
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      
+      - name: Commit reports to repository
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/
+          git diff --staged --quiet || git commit -m "Update optimization report - $(date '+%Y-%m-%d %H:%M:%S')"
+          git push origin main || true
