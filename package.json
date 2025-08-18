@@ -7,7 +7,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "generate": "npm run build && npm start"
+    "generate": "npm run build && npm start",
+    "build:vercel": "npm run build && node scripts/build-for-vercel.js",
+    "vercel:dev": "npm run build && node scripts/build-for-vercel.js && vercel dev"
   },
   "keywords": ["decentraland", "optimization", "report"],
   "author": "DCL Explorer",

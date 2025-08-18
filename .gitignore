@@ -1,9 +1,11 @@
 node_modules/
 dist/
 reports/
+public/
 *.log
 .DS_Store
 .env
-.env.local
+.env*.local
 .vscode/
 .idea/
+.vercel

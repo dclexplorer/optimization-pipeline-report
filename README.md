@@ -2,7 +2,7 @@
 
 A TypeScript/Node.js application that generates interactive HTML reports for the Decentraland world's asset optimization pipeline.
 
-🌐 **Live Report**: [https://dclexplorer.github.io/optimization-pipeline-report/](https://dclexplorer.github.io/optimization-pipeline-report/)
+🌐 **Live Report**: Deploy on Vercel for automatic updates!
 
 ## Features
 
@@ -16,12 +16,30 @@ A TypeScript/Node.js application that generates interactive HTML reports for the
   - Report Status View: Displays report availability
 - **Detailed Statistics**: Comprehensive metrics about the world and optimization coverage
 
-## Live Deployment
+## Deployment Options
 
-The report is automatically generated and deployed to GitHub Pages:
-- **Latest Report**: [https://dclexplorer.github.io/optimization-pipeline-report/](https://dclexplorer.github.io/optimization-pipeline-report/)
-- **Report History**: [https://dclexplorer.github.io/optimization-pipeline-report/history.html](https://dclexplorer.github.io/optimization-pipeline-report/history.html)
+### Vercel Deployment (Recommended)
 
+1. **Deploy to Vercel**:
+   ```bash
+   npx vercel
+   ```
+
+2. **Set Environment Variables** in Vercel Dashboard:
+   - `S3_ACCESS_KEY_ID`
+   - `S3_SECRET_ACCESS_KEY`
+   - `S3_ENDPOINT`
+   - `S3_BUCKET`
+   - `S3_REGION`
+
+3. **Automatic Rebuilds**:
+   - Create a Deploy Hook in Vercel project settings
+   - Add the hook URL as `VERCEL_DEPLOY_HOOK` secret in GitHub
+   - The report will rebuild daily at 00:00 UTC
+
+### GitHub Pages Deployment
+
+The report can also be deployed to GitHub Pages using the included workflow.
 Reports are generated daily at 00:00 UTC and deployed automatically.
 
 ## Local Development
