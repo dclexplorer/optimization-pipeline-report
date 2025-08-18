@@ -9,21 +9,34 @@ const MIN_COORD = -175;
 const MAX_COORD = 175;
 
 export class DecentralandAPI {
-  private async fetchBatch(pointers: string[]): Promise<Scene[]> {
+  private async fetchBatch(pointers: string[], retryCount: number = 0): Promise<Scene[]> {
+    const MAX_RETRIES = 3;
+    const TIMEOUT = 120000; // 120 seconds
+    
     try {
-      console.log(`Fetching batch of ${pointers.length} pointers...`);
+      console.log(`Fetching batch of ${pointers.length} pointers... (attempt ${retryCount + 1}/${MAX_RETRIES})`);
       const response = await axios.post(API_URL, {
         pointers: pointers
       }, {
         headers: {
           'Content-Type': 'application/json'
         },
-        timeout: 60000
+        timeout: TIMEOUT
       });
 
       return response.data as Scene[];
-    } catch (error) {
-      console.error('Error fetching batch:', error);
+    } catch (error: any) {
+      const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout');
+      const isRetryable = isTimeout || error.response?.status >= 500;
+      
+      if (isRetryable && retryCount < MAX_RETRIES - 1) {
+        const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff, max 10s
+        console.log(`Request failed (${error.code || error.message}), retrying in ${backoffTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffTime));
+        return this.fetchBatch(pointers, retryCount + 1);
+      }
+      
+      console.error(`Error fetching batch after ${retryCount + 1} attempts:`, error.message || error);
       throw error;
     }
   }
@@ -44,7 +57,7 @@ export class DecentralandAPI {
     try {
       const url = `${OPTIMIZATION_URL}/${sceneId}-mobile.zip`;
       const response = await axios.head(url, {
-        timeout: 5000,
+        timeout: 10000, // Increased timeout
         validateStatus: (status) => status < 500
       });
       return response.status === 200;
@@ -53,11 +66,13 @@ export class DecentralandAPI {
     }
   }
 
-  private async fetchOptimizationReport(sceneId: string): Promise<OptimizationReport | null> {
+  private async fetchOptimizationReport(sceneId: string, retryCount: number = 0): Promise<OptimizationReport | null> {
+    const MAX_RETRIES = 2;
+    
     try {
       const url = `${OPTIMIZATION_URL}/${sceneId}-report.json`;
       const response = await axios.get(url, {
-        timeout: 5000,
+        timeout: 10000, // Increased timeout
         validateStatus: (status) => status < 500
       });
       
@@ -71,7 +86,11 @@ export class DecentralandAPI {
         };
       }
       return null;
-    } catch (error) {
+    } catch (error: any) {
+      if (retryCount < MAX_RETRIES - 1 && (error.code === 'ECONNABORTED' || error.response?.status >= 500)) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        return this.fetchOptimizationReport(sceneId, retryCount + 1);
+      }
       return null;
     }
   }
@@ -82,6 +101,8 @@ export class DecentralandAPI {
     console.log(`Total lands to fetch: ${totalLands}`);
 
     const gridSize = Math.floor(Math.sqrt(BATCH_SIZE));
+    let successfulBatches = 0;
+    let failedBatches = 0;
     
     for (let startX = MIN_COORD; startX <= MAX_COORD; startX += gridSize) {
       for (let startY = MIN_COORD; startY <= MAX_COORD; startY += gridSize) {
@@ -93,18 +114,28 @@ export class DecentralandAPI {
         try {
           const scenes = await this.fetchBatch(pointers);
           allScenes.push(...scenes);
+          successfulBatches++;
           
           const progress = ((startX - MIN_COORD) * (MAX_COORD - MIN_COORD + 1) + (startY - MIN_COORD)) / totalLands * 100;
-          console.log(`Progress: ${progress.toFixed(2)}%`);
+          console.log(`Progress: ${progress.toFixed(2)}% - Success: ${successfulBatches}, Failed: ${failedBatches}`);
         } catch (error) {
-          console.error(`Failed to fetch batch for region (${startX},${startY}) to (${endX},${endY})`);
+          console.error(`Failed to fetch batch for region (${startX},${startY}) to (${endX},${endY}) after retries`);
+          failedBatches++;
+          // Continue with next batch instead of throwing
         }
         
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Small delay between requests to avoid overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
 
-    console.log(`Fetched ${allScenes.length} scenes`);
+    console.log(`Fetched ${allScenes.length} scenes from ${successfulBatches} successful batches (${failedBatches} failed)`);
+    
+    // If we failed to fetch most of the data, throw an error
+    if (successfulBatches === 0) {
+      throw new Error('Failed to fetch any world data');
+    }
+    
     return allScenes;
   }
 
