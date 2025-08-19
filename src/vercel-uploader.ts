@@ -25,17 +25,31 @@ export class VercelUploader {
     try {
       console.log('\n📤 Uploading report data to Vercel...');
       
-      // Convert to JSON
-      const jsonData = JSON.stringify(reportData);
-      const dataSize = Buffer.byteLength(jsonData, 'utf8');
-      console.log(`   Data size: ${(dataSize / 1024 / 1024).toFixed(2)} MB`);
-
-      // Send the JSON data directly to Vercel
-      console.log('   Sending data to Vercel...');
-      const response = await axios.post(
-        `${this.vercelUrl}/api/upload-report`,
+      // Split lands into chunks to stay under size limits
+      const CHUNK_SIZE = 5000; // Lands per chunk
+      const lands = reportData.l;
+      const chunks = [];
+      
+      for (let i = 0; i < lands.length; i += CHUNK_SIZE) {
+        chunks.push(lands.slice(i, i + CHUNK_SIZE));
+      }
+      
+      console.log(`   Splitting data into ${chunks.length} chunks (${lands.length} lands total)`);
+      
+      // First, upload metadata with stats and scene colors
+      const metadata = {
+        s: reportData.s, // stats
+        c: reportData.c, // color indices
+        g: reportData.g, // generated timestamp
+        totalChunks: chunks.length,
+        totalLands: lands.length
+      };
+      
+      console.log('   Uploading metadata...');
+      let response = await axios.post(
+        `${this.vercelUrl}/api/upload-metadata`,
         {
-          data: reportData,
+          data: metadata,
           timestamp: new Date().toISOString(),
         },
         {
@@ -43,21 +57,64 @@ export class VercelUploader {
             'Content-Type': 'application/json',
             'X-Auth-Token': this.uploadSecret,
           },
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity,
+        }
+      );
+      
+      if (response.status !== 200) {
+        throw new Error(`Failed to upload metadata: ${response.status}`);
+      }
+      
+      // Upload each chunk
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkData = {
+          chunkIndex: i,
+          totalChunks: chunks.length,
+          lands: chunks[i]
+        };
+        
+        const chunkSize = Buffer.byteLength(JSON.stringify(chunkData), 'utf8');
+        console.log(`   Uploading chunk ${i + 1}/${chunks.length} (${(chunkSize / 1024 / 1024).toFixed(2)} MB)...`);
+        
+        response = await axios.post(
+          `${this.vercelUrl}/api/upload-chunk`,
+          {
+            data: chunkData,
+            timestamp: new Date().toISOString(),
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Auth-Token': this.uploadSecret,
+            },
+          }
+        );
+        
+        if (response.status !== 200) {
+          throw new Error(`Failed to upload chunk ${i}: ${response.status}`);
+        }
+      }
+      
+      // Signal completion
+      console.log('   Finalizing upload...');
+      response = await axios.post(
+        `${this.vercelUrl}/api/finalize-upload`,
+        {
+          totalChunks: chunks.length,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Auth-Token': this.uploadSecret,
+          },
         }
       );
 
       if (response.status === 200) {
         console.log('✅ Report data uploaded to Vercel successfully!');
         console.log(`🌐 View report at: ${this.vercelUrl}`);
-        if (response.data.blobUrl) {
-          console.log(`📦 Blob Storage URL: ${response.data.blobUrl}`);
-        }
       } else {
-        console.error('❌ Failed to upload report data to Vercel');
-        console.error(`   Status: ${response.status}`);
-        console.error(`   Response: ${JSON.stringify(response.data)}`);
+        console.error('❌ Failed to finalize upload');
       }
     } catch (error: any) {
       console.error('❌ Error uploading to Vercel:', error.message);

@@ -4,24 +4,11 @@ import { generateHTMLFromData } from './generate-html.js';
 
 export default async function handler(req, res) {
   try {
-    // Try to get the report data from Blob Storage
-    const { blobs } = await list({ prefix: 'report-data' });
+    // Check if upload is complete
+    const { blobs: completeBlobs } = await list({ prefix: 'report-complete' });
     
-    if (blobs && blobs.length > 0) {
-      const reportBlob = blobs[0];
-      
-      // Fetch the report data from blob URL
-      const response = await fetch(reportBlob.url);
-      const reportData = await response.json();
-      
-      // Generate HTML from the data
-      const html = generateHTMLFromData(reportData);
-      
-      res.setHeader('Content-Type', 'text/html');
-      res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
-      res.status(200).send(html);
-    } else {
-      // Serve a placeholder page if no report exists yet
+    if (!completeBlobs || completeBlobs.length === 0) {
+      // No complete report yet
       res.setHeader('Content-Type', 'text/html');
       res.status(200).send(`
         <!DOCTYPE html>
@@ -55,7 +42,48 @@ export default async function handler(req, res) {
         </body>
         </html>
       `);
+      return;
     }
+
+    // Fetch completion info
+    const completeResponse = await fetch(completeBlobs[0].url);
+    const completeInfo = await completeResponse.json();
+    
+    // Fetch metadata
+    const { blobs: metadataBlobs } = await list({ prefix: 'report-metadata' });
+    if (!metadataBlobs || metadataBlobs.length === 0) {
+      throw new Error('Metadata not found');
+    }
+    
+    const metadataResponse = await fetch(metadataBlobs[0].url);
+    const metadata = await metadataResponse.json();
+    
+    // Fetch and reassemble chunks
+    const allLands = [];
+    for (let i = 0; i < completeInfo.totalChunks; i++) {
+      const { blobs: chunkBlobs } = await list({ prefix: `report-chunk-${i}` });
+      if (chunkBlobs && chunkBlobs.length > 0) {
+        const chunkResponse = await fetch(chunkBlobs[0].url);
+        const chunkData = await chunkResponse.json();
+        allLands.push(...chunkData);
+      }
+    }
+    
+    // Reconstruct full report data
+    const reportData = {
+      l: allLands,
+      s: metadata.s,
+      c: metadata.c,
+      g: metadata.g
+    };
+    
+    // Generate HTML from the data
+    const html = generateHTMLFromData(reportData);
+    
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    res.status(200).send(html);
+    
   } catch (error) {
     console.error('Error serving report:', error);
     
@@ -81,11 +109,6 @@ export default async function handler(req, res) {
               border-radius: 8px;
               margin: 20px 0;
               border-left: 4px solid #ff6b6b;
-            }
-            code {
-              background: #f5f5f5;
-              padding: 2px 6px;
-              border-radius: 3px;
             }
           </style>
         </head>
