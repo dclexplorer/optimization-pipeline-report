@@ -56,8 +56,7 @@ export class ReportGenerator {
       l: occupiedLands, // lands (only occupied)
       s: stats, // stats
       c: sceneColorIndices, // color indices for scenes
-      g: Date.now(), // generated timestamp (shorter than ISO string)
-      v: 2 // data format version
+      g: Date.now() // generated timestamp (shorter than ISO string)
     };
   }
 
