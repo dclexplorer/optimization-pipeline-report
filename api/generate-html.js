@@ -1,6 +1,32 @@
 // Template function to generate HTML from report data
 export function generateHTMLFromData(reportData) {
-  const { lands, stats, sceneColors, generated, optimizationUrl } = reportData;
+  // Handle both old and new data formats
+  const isV2 = reportData.v === 2;
+  
+  let lands, stats, sceneColors, generated;
+  
+  if (isV2) {
+    // New compressed format
+    lands = reportData.l;
+    stats = reportData.s;
+    const colorIndices = reportData.c;
+    generated = new Date(reportData.g).toISOString();
+    
+    // Generate colors from indices
+    sceneColors = {};
+    Object.entries(colorIndices).forEach(([sceneId, index]) => {
+      const hue = ((index as number) * 137.5) % 360;
+      sceneColors[sceneId] = `hsl(${hue}, 70%, 50%)`;
+    });
+  } else {
+    // Old format
+    lands = reportData.lands;
+    stats = reportData.stats;
+    sceneColors = reportData.sceneColors;
+    generated = reportData.generated;
+  }
+  
+  const optimizationUrl = 'https://optimized-assets.dclexplorer.com/v1';
   
   return `<!DOCTYPE html>
 <html lang="en">
@@ -304,8 +330,8 @@ export function generateHTMLFromData(reportData) {
         const MAX_COORD = 175;
         const GRID_SIZE = MAX_COORD - MIN_COORD + 1;
         const OPTIMIZATION_URL = '${optimizationUrl}';
-        const reportData = ${JSON.stringify({ lands, sceneColors })};
-        const landsArray = reportData.lands;
+        const isV2 = ${isV2};
+        const reportData = ${JSON.stringify({ lands, sceneColors, v: reportData.v })};
         const sceneColors = reportData.sceneColors;
         
         const canvas = document.getElementById('worldMap');
@@ -327,16 +353,42 @@ export function generateHTMLFromData(reportData) {
         let dragOffsetY = 0;
         
         const landsMap = new Map();
-        landsArray.forEach(land => {
-            const key = land.x + ',' + land.y;
-            landsMap.set(key, {
-                x: land.x,
-                y: land.y,
-                sceneId: land.s,
-                hasOptimizedAssets: land.o,
-                optimizationReport: land.r
+        
+        if (isV2) {
+            // New compressed format: [x, y, sceneId, hasOptimized, reportStatus]
+            reportData.lands.forEach(land => {
+                const [x, y, sceneId, hasOptimized, reportStatus] = land;
+                const key = x + ',' + y;
+                const landData = {
+                    x: x,
+                    y: y,
+                    sceneId: sceneId,
+                    hasOptimizedAssets: hasOptimized === 1
+                };
+                
+                // Add report info if exists
+                if (reportStatus !== undefined) {
+                    landData.optimizationReport = {
+                        ok: reportStatus === 1,
+                        id: sceneId
+                    };
+                }
+                
+                landsMap.set(key, landData);
             });
-        });
+        } else {
+            // Old format
+            reportData.lands.forEach(land => {
+                const key = land.x + ',' + land.y;
+                landsMap.set(key, {
+                    x: land.x,
+                    y: land.y,
+                    sceneId: land.s,
+                    hasOptimizedAssets: land.o,
+                    optimizationReport: land.r
+                });
+            });
+        }
         
         function resizeCanvas() {
             const size = GRID_SIZE * cellSize;
