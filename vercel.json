@@ -4,18 +4,20 @@
     "api/index.js": {
       "maxDuration": 10
     },
-    "api/upload-report.js": {
-      "maxDuration": 30
+    "api/upload-metadata.js": {
+      "maxDuration": 10
+    },
+    "api/upload-chunk.js": {
+      "maxDuration": 10
+    },
+    "api/finalize-upload.js": {
+      "maxDuration": 10
     }
   },
   "rewrites": [
     {
       "source": "/",
       "destination": "/api"
-    },
-    {
-      "source": "/api/upload-report",
-      "destination": "/api/upload-report"
     }
   ]
 }
