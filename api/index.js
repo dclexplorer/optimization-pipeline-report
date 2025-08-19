@@ -1,17 +1,21 @@
 // Vercel serverless function to serve the latest report from Blob Storage
-import { list, head } from '@vercel/blob';
+import { list } from '@vercel/blob';
+import { generateHTMLFromData } from './generate-html.js';
 
 export default async function handler(req, res) {
   try {
-    // Try to get the report from Blob Storage
-    const { blobs } = await list({ prefix: 'report-latest' });
+    // Try to get the report data from Blob Storage
+    const { blobs } = await list({ prefix: 'report-data' });
     
     if (blobs && blobs.length > 0) {
       const reportBlob = blobs[0];
       
-      // Fetch the report content from blob URL
+      // Fetch the report data from blob URL
       const response = await fetch(reportBlob.url);
-      const html = await response.text();
+      const reportData = await response.json();
+      
+      // Generate HTML from the data
+      const html = generateHTMLFromData(reportData);
       
       res.setHeader('Content-Type', 'text/html');
       res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour

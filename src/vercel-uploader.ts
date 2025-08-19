@@ -12,7 +12,7 @@ export class VercelUploader {
     this.uploadSecret = process.env.UPLOAD_SECRET || '';
   }
 
-  public async uploadReport(htmlPath: string): Promise<void> {
+  public async uploadReportData(reportData: any): Promise<void> {
     // Check if we have the necessary credentials
     if (!this.vercelUrl || !this.uploadSecret) {
       console.log('\n⚠️  Vercel upload skipped (VERCEL_URL or UPLOAD_SECRET not configured)');
@@ -23,40 +23,19 @@ export class VercelUploader {
     }
 
     try {
-      console.log('\n📤 Uploading report to Vercel Blob Storage...');
+      console.log('\n📤 Uploading report data to Vercel...');
       
-      // Read the HTML file
-      const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
-      const fileSize = fs.statSync(htmlPath).size;
-      console.log(`   Report size: ${(fileSize / 1024 / 1024).toFixed(2)} MB`);
+      // Convert to JSON
+      const jsonData = JSON.stringify(reportData);
+      const dataSize = Buffer.byteLength(jsonData, 'utf8');
+      console.log(`   Data size: ${(dataSize / 1024 / 1024).toFixed(2)} MB`);
 
-      // First, upload to transfer.sh or similar service
-      console.log('   Uploading to temporary storage...');
-      const fileName = path.basename(htmlPath);
-      
-      // Upload to transfer.sh
-      const uploadResponse = await axios.put(
-        `https://transfer.sh/${fileName}`,
-        htmlContent,
-        {
-          headers: {
-            'Max-Downloads': '10',
-            'Max-Days': '1',
-          },
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity,
-        }
-      );
-
-      const tempUrl = uploadResponse.data.trim();
-      console.log(`   Temporary URL: ${tempUrl}`);
-
-      // Now send the URL to Vercel
-      console.log('   Sending URL to Vercel...');
+      // Send the JSON data directly to Vercel
+      console.log('   Sending data to Vercel...');
       const response = await axios.post(
         `${this.vercelUrl}/api/upload-report`,
         {
-          url: tempUrl,
+          data: reportData,
           timestamp: new Date().toISOString(),
         },
         {
@@ -64,17 +43,19 @@ export class VercelUploader {
             'Content-Type': 'application/json',
             'X-Auth-Token': this.uploadSecret,
           },
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
         }
       );
 
       if (response.status === 200) {
-        console.log('✅ Report uploaded to Vercel successfully!');
+        console.log('✅ Report data uploaded to Vercel successfully!');
         console.log(`🌐 View report at: ${this.vercelUrl}`);
         if (response.data.blobUrl) {
           console.log(`📦 Blob Storage URL: ${response.data.blobUrl}`);
         }
       } else {
-        console.error('❌ Failed to upload report to Vercel');
+        console.error('❌ Failed to upload report data to Vercel');
         console.error(`   Status: ${response.status}`);
         console.error(`   Response: ${JSON.stringify(response.data)}`);
       }
@@ -88,44 +69,8 @@ export class VercelUploader {
     }
   }
 
-  public async uploadReportDirect(htmlContent: string): Promise<void> {
-    // Alternative method that uploads content directly if transfer.sh is down
-    if (!this.vercelUrl || !this.uploadSecret) {
-      return;
-    }
-
-    try {
-      console.log('\n📤 Attempting direct upload to Vercel...');
-      
-      // Try to compress the content first
-      const dataUri = `data:text/html;base64,${Buffer.from(htmlContent).toString('base64')}`;
-      
-      const response = await axios.post(
-        `${this.vercelUrl}/api/upload-report-direct`,
-        {
-          html: htmlContent,
-          timestamp: new Date().toISOString(),
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Auth-Token': this.uploadSecret,
-          },
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity,
-        }
-      );
-
-      if (response.status === 200) {
-        console.log('✅ Report uploaded directly to Vercel!');
-      }
-    } catch (error: any) {
-      // If direct upload fails due to size, fall back to URL method
-      if (error.response?.status === 413) {
-        console.log('   Direct upload too large, falling back to URL method...');
-      } else {
-        console.error('❌ Direct upload failed:', error.message);
-      }
-    }
+  // Legacy method for HTML upload (kept for backwards compatibility)
+  public async uploadReport(htmlPath: string): Promise<void> {
+    console.log('\n⚠️  HTML upload is deprecated. Using JSON data upload instead.');
   }
 }

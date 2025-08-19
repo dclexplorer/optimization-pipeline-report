@@ -34,20 +34,23 @@ async function main() {
     console.log(`  - Successful Optimizations: ${stats.successfulOptimizations}`);
     console.log(`  - Failed Optimizations: ${stats.failedOptimizations}`);
     
-    console.log('\n📝 Step 4: Generating HTML report...');
+    console.log('\n📝 Step 4: Generating report data...');
     const generator = new ReportGenerator();
+    const reportData = generator.generateReportData(worldData, stats);
+    
+    // Step 5: Upload JSON data to Vercel if configured
+    const uploader = new VercelUploader();
+    await uploader.uploadReportData(reportData);
+    
+    // Step 6: Generate local HTML report for testing
+    console.log('\n📝 Step 6: Generating local HTML report...');
     const html = generator.generateHTML(worldData, stats);
     
     const outputPath = path.join(process.cwd(), 'reports', `decentraland-world-report-${Date.now()}.html`);
     await generator.saveReport(html, outputPath);
     
     console.log('\n✅ Report generation complete!');
-    console.log(`📁 Report saved to: ${outputPath}`);
-    
-    // Step 5: Upload to Vercel if configured
-    const uploader = new VercelUploader();
-    await uploader.uploadReport(outputPath);
-    
+    console.log(`📁 Local report saved to: ${outputPath}`);
     console.log('\n🌐 Open the HTML file in your browser to view the interactive map.');
     
   } catch (error) {

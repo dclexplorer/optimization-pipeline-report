@@ -1,10 +1,10 @@
-// Vercel serverless function to receive and store the report using Blob Storage
+// Vercel serverless function to receive and store report data using Blob Storage
 import { put, list, del } from '@vercel/blob';
 
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '50kb', // Small limit since we're just receiving metadata
+      sizeLimit: '10mb', // Should be enough for JSON data
     },
   },
 };
@@ -33,19 +33,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { url, timestamp } = req.body;
+    const { data, timestamp } = req.body;
 
-    if (!url) {
-      return res.status(400).json({ error: 'No URL provided' });
+    if (!data) {
+      return res.status(400).json({ error: 'No data provided' });
     }
 
-    // Fetch the HTML content from the provided URL
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch report from URL: ${response.statusText}`);
-    }
-
-    const html = await response.text();
+    // Store the JSON data in Blob Storage
+    const jsonData = JSON.stringify(data);
+    console.log(`Storing report data: ${(Buffer.byteLength(jsonData) / 1024 / 1024).toFixed(2)} MB`);
 
     // Clean up old reports (keep only the latest)
     try {
@@ -57,10 +53,10 @@ export default async function handler(req, res) {
       console.log('No previous reports to clean up');
     }
 
-    // Store the new report in Blob Storage
-    const blob = await put(`report-latest.html`, html, {
+    // Store the new report data in Blob Storage
+    const blob = await put(`report-data.json`, jsonData, {
       access: 'public',
-      contentType: 'text/html',
+      contentType: 'application/json',
       addRandomSuffix: false,
     });
 
@@ -68,8 +64,10 @@ export default async function handler(req, res) {
     await put(`report-metadata.json`, JSON.stringify({
       timestamp: timestamp || new Date().toISOString(),
       uploadedAt: new Date().toISOString(),
-      size: html.length,
-      blobUrl: blob.url
+      size: jsonData.length,
+      blobUrl: blob.url,
+      landsCount: data.lands?.length || 0,
+      stats: data.stats
     }), {
       access: 'public',
       contentType: 'application/json',
@@ -78,7 +76,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ 
       success: true, 
-      message: 'Report uploaded to Blob Storage successfully',
+      message: 'Report data uploaded to Blob Storage successfully',
       blobUrl: blob.url,
       timestamp: timestamp || new Date().toISOString()
     });

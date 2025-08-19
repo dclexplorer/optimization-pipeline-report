@@ -18,6 +18,66 @@ export class ReportGenerator {
     return this.colorCache.get(sceneId)!;
   }
 
+  public generateReportData(worldData: WorldData, stats: any): any {
+    const landsArray = Array.from(worldData.lands.values());
+    
+    // Minimize report data to prevent JSON.stringify errors
+    const minimalLands = landsArray.map(land => {
+      // Only include lands with scenes or reports to reduce data size
+      if (!land.sceneId) {
+        return {
+          x: land.x,
+          y: land.y,
+          s: null, // sceneId shortened to 's'
+          o: false, // hasOptimizedAssets shortened to 'o'
+        };
+      }
+      
+      const minimal: any = {
+        x: land.x,
+        y: land.y,
+        s: land.sceneId,
+        o: land.hasOptimizedAssets || false,
+      };
+      
+      // Only add report if it exists
+      if (land.optimizationReport) {
+        minimal.r = {
+          ok: land.optimizationReport.success || false,
+          id: land.sceneId, // Store scene ID to construct URL
+        };
+        
+        // Only add error if exists and truncate it
+        if (land.optimizationReport.error && !land.optimizationReport.success) {
+          minimal.r.err = land.optimizationReport.error.substring(0, 100);
+        }
+      }
+      
+      return minimal;
+    });
+    
+    // Prepare scene colors for the visualization
+    const sceneColors: Record<string, string> = {};
+    this.colorCache.forEach((color, sceneId) => {
+      sceneColors[sceneId] = color;
+    });
+    
+    // Ensure all scenes have colors
+    worldData.scenes.forEach((scene, sceneId) => {
+      if (!sceneColors[sceneId]) {
+        sceneColors[sceneId] = this.getColorForScene(sceneId);
+      }
+    });
+    
+    return {
+      lands: minimalLands,
+      stats,
+      sceneColors,
+      generated: new Date().toISOString(),
+      optimizationUrl: 'https://optimized-assets.dclexplorer.com/v1'
+    };
+  }
+
   public generateHTML(worldData: WorldData, stats: any): string {
     const landsArray = Array.from(worldData.lands.values());
     
