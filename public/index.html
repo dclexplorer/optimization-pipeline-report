@@ -358,6 +358,7 @@
         let dragStartY = 0;
         let dragOffsetX = 0;
         let dragOffsetY = 0;
+        let zoomTimeout = null;
         
         async function loadReportData() {
             try {
@@ -745,14 +746,28 @@
         
         function handleWheel(e) {
             e.preventDefault();
-            // Reduce sensitivity by using smaller step (0.5 instead of 1)
-            const delta = e.deltaY > 0 ? -0.5 : 0.5;
-            const newSize = Math.round(Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, cellSize + delta)));
-            if (newSize !== cellSize) {
-                cellSize = newSize;
+            
+            // Clear previous timeout
+            if (zoomTimeout) {
+                clearTimeout(zoomTimeout);
+            }
+            
+            // Determine zoom direction (note: deltaY is positive when scrolling down/out)
+            const zoomIn = e.deltaY < 0;
+            const step = 1;
+            
+            // Apply zoom immediately
+            if (zoomIn) {
+                cellSize = Math.min(MAX_CELL_SIZE, cellSize + step);
+            } else {
+                cellSize = Math.max(MIN_CELL_SIZE, cellSize - step);
+            }
+            
+            // Debounce the canvas redraw for performance
+            zoomTimeout = setTimeout(() => {
                 resizeCanvas();
                 drawGrid();
-            }
+            }, 50);
         }
         
         async function showReportModal(landData) {
