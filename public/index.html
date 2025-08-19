@@ -1,26 +1,9 @@
-// Template function to generate HTML from report data
-export function generateHTMLFromData(reportData) {
-  // Compressed format
-  const lands = reportData.l;
-  const stats = reportData.s;
-  const colorIndices = reportData.c;
-  const generated = new Date(reportData.g).toISOString();
-  
-  // Generate colors from indices
-  const sceneColors = {};
-  Object.entries(colorIndices).forEach(([sceneId, index]) => {
-    const hue = ((index as number) * 137.5) % 360;
-    sceneColors[sceneId] = `hsl(${hue}, 70%, 50%)`;
-  });
-  
-  const optimizationUrl = 'https://optimized-assets.dclexplorer.com/v1';
-  
-  return `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Decentraland World Report - Generated ${new Date(generated).toLocaleDateString()}</title>
+    <title>Decentraland World Optimization Report</title>
     <style>
         * {
             margin: 0;
@@ -35,6 +18,52 @@ export function generateHTMLFromData(reportData) {
             display: flex;
             flex-direction: column;
             color: #333;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+        }
+        
+        .loading h2 {
+            margin-bottom: 20px;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            max-width: 500px;
+            text-align: center;
+        }
+        
+        .error h2 {
+            color: #ef4444;
+            margin-bottom: 15px;
         }
         
         .header {
@@ -220,30 +249,182 @@ export function generateHTMLFromData(reportData) {
             overflow-x: auto;
         }
         
-        .json-key {
-            color: #a626a4;
-        }
-        
-        .json-value {
-            color: #50a14f;
-        }
-        
-        .json-string {
-            color: #e45649;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #666;
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="container">
-            <h1>🗺️ Decentraland World Optimization Report</h1>
-            <div class="stats-grid">
+    <div id="loading" class="loading">
+        <h2>Loading Report Data...</h2>
+        <div class="spinner"></div>
+        <p style="margin-top: 20px; opacity: 0.8;">Fetching optimization data from Vercel Blob Storage</p>
+    </div>
+    
+    <div id="error" class="error hidden">
+        <h2>Error Loading Report</h2>
+        <p id="errorMessage">Unable to load report data.</p>
+        <button onclick="location.reload()">Retry</button>
+    </div>
+    
+    <div id="app" class="hidden">
+        <div class="header">
+            <div class="container">
+                <h1>🗺️ Decentraland World Optimization Report</h1>
+                <div class="stats-grid" id="statsGrid">
+                    <!-- Stats will be populated here -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="controls">
+                <button id="viewScenes" class="active">Scene View</button>
+                <button id="viewOptimization">Optimization View</button>
+                <button id="viewReports">Report Status</button>
+                <span style="margin: 0 10px;">|</span>
+                <button id="zoomIn">Zoom In</button>
+                <button id="zoomOut">Zoom Out</button>
+                <button id="resetView">Reset View</button>
+                <button id="downloadMap">Download Map</button>
+                <span style="margin: 0 10px;">|</span>
+                <span style="font-size: 12px; color: #666;">
+                    Shift + Drag to pan • Scroll to zoom • Click to view report
+                </span>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="worldMap" width="975" height="975"></canvas>
+                <div class="info-panel" id="infoPanel">
+                    Hover over the map to see land information
+                </div>
+                <div class="legend" id="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #1a1a1a;"></div>
+                        <span>Empty Land</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="reportModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modalTitle">Optimization Report</h2>
+            <div id="modalBody">
+                <div class="loading">Loading report...</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const MIN_COORD = -175;
+        const MAX_COORD = 175;
+        const GRID_SIZE = MAX_COORD - MIN_COORD + 1;
+        const OPTIMIZATION_URL = 'https://optimized-assets.dclexplorer.com/v1';
+        const BLOB_BASE_URL = 'https://rfnu8imf3cuzkkum.public.blob.vercel-storage.com';
+        
+        let reportData = null;
+        let sceneColors = {};
+        let landsMap = new Map();
+        
+        // Canvas variables
+        let canvas, ctx, infoPanel, modal, modalTitle, modalBody, closeModal;
+        let cellSize = 3;
+        let offsetX = 0;
+        let offsetY = 0;
+        let currentView = 'scenes';
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        
+        async function loadReportData() {
+            try {
+                // First check if upload is complete
+                const completeResponse = await fetch(`${BLOB_BASE_URL}/report-complete.json`);
+                if (!completeResponse.ok) {
+                    throw new Error('No complete report found. Waiting for first report generation.');
+                }
+                const completeInfo = await completeResponse.json();
+                
+                // Fetch metadata
+                const metadataResponse = await fetch(`${BLOB_BASE_URL}/report-metadata.json`);
+                if (!metadataResponse.ok) {
+                    throw new Error('Metadata not found');
+                }
+                const metadata = await metadataResponse.json();
+                
+                // Fetch and reassemble chunks
+                const allLands = [];
+                for (let i = 0; i < completeInfo.totalChunks; i++) {
+                    const chunkResponse = await fetch(`${BLOB_BASE_URL}/report-chunk-${i}.json`);
+                    if (!chunkResponse.ok) {
+                        console.warn(`Chunk ${i} not found, skipping...`);
+                        continue;
+                    }
+                    const chunkData = await chunkResponse.json();
+                    allLands.push(...chunkData);
+                }
+                
+                // Reconstruct report data
+                reportData = {
+                    lands: allLands,
+                    stats: metadata.s,
+                    colorIndices: metadata.c,
+                    generated: metadata.g
+                };
+                
+                // Generate colors from indices
+                Object.entries(reportData.colorIndices).forEach(([sceneId, index]) => {
+                    const hue = (index * 137.5) % 360;
+                    sceneColors[sceneId] = `hsl(${hue}, 70%, 50%)`;
+                });
+                
+                // Build lands map
+                reportData.lands.forEach(land => {
+                    const [x, y, sceneId, hasOptimized, reportStatus] = land;
+                    const key = x + ',' + y;
+                    const landData = {
+                        x: x,
+                        y: y,
+                        sceneId: sceneId,
+                        hasOptimizedAssets: hasOptimized === 1
+                    };
+                    
+                    if (reportStatus !== undefined) {
+                        landData.optimizationReport = {
+                            ok: reportStatus === 1,
+                            id: sceneId
+                        };
+                    }
+                    
+                    landsMap.set(key, landData);
+                });
+                
+                // Display stats
+                displayStats(reportData.stats);
+                
+                // Initialize canvas
+                initializeCanvas();
+                
+                // Show app, hide loading
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('Error loading report:', error);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('errorMessage').textContent = error.message;
+                document.getElementById('error').classList.remove('hidden');
+            }
+        }
+        
+        function displayStats(stats) {
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = `
                 <div class="stat-card">
                     <div class="stat-label">Total Lands</div>
                     <div class="stat-value">${stats.totalLands.toLocaleString()}</div>
@@ -268,99 +449,82 @@ export function generateHTMLFromData(reportData) {
                     <div class="stat-label">Reports Available</div>
                     <div class="stat-value">${stats.scenesWithReports.toLocaleString()}</div>
                 </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="main-content">
-        <div class="controls">
-            <button id="viewScenes" class="active">Scene View</button>
-            <button id="viewOptimization">Optimization View</button>
-            <button id="viewReports">Report Status</button>
-            <span style="margin: 0 10px;">|</span>
-            <button id="zoomIn">Zoom In</button>
-            <button id="zoomOut">Zoom Out</button>
-            <button id="resetView">Reset View</button>
-            <button id="downloadMap">Download Map</button>
-            <span style="margin: 0 10px;">|</span>
-            <span style="font-size: 12px; color: #666;">
-                Shift + Drag to pan • Scroll to zoom • Click to view report
-            </span>
-        </div>
+            `;
+        }
         
-        <div class="canvas-container">
-            <canvas id="worldMap" width="975" height="975"></canvas>
-            <div class="info-panel" id="infoPanel">
-                Hover over the map to see land information
-            </div>
-            <div class="legend" id="legend">
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #1a1a1a;"></div>
-                    <span>Empty Land</span>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div id="reportModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2 id="modalTitle">Optimization Report</h2>
-            <div id="modalBody">
-                <div class="loading">Loading report...</div>
-            </div>
-        </div>
-    </div>
-    
-    <script>
-        const MIN_COORD = -175;
-        const MAX_COORD = 175;
-        const GRID_SIZE = MAX_COORD - MIN_COORD + 1;
-        const OPTIMIZATION_URL = '${optimizationUrl}';
-        const reportData = ${JSON.stringify({ lands, sceneColors })};
-        const sceneColors = reportData.sceneColors;
+        function initializeCanvas() {
+            canvas = document.getElementById('worldMap');
+            ctx = canvas.getContext('2d');
+            infoPanel = document.getElementById('infoPanel');
+            modal = document.getElementById('reportModal');
+            modalTitle = document.getElementById('modalTitle');
+            modalBody = document.getElementById('modalBody');
+            closeModal = document.getElementsByClassName('close')[0];
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Initial draw
+            resizeCanvas();
+            updateLegend();
+            drawGrid();
+        }
         
-        const canvas = document.getElementById('worldMap');
-        const ctx = canvas.getContext('2d');
-        const infoPanel = document.getElementById('infoPanel');
-        const modal = document.getElementById('reportModal');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalBody = document.getElementById('modalBody');
-        const closeModal = document.getElementsByClassName('close')[0];
-        
-        let cellSize = 3;
-        let offsetX = 0;
-        let offsetY = 0;
-        let currentView = 'scenes';
-        let isDragging = false;
-        let dragStartX = 0;
-        let dragStartY = 0;
-        let dragOffsetX = 0;
-        let dragOffsetY = 0;
-        
-        const landsMap = new Map();
-        
-        // Compressed format: [x, y, sceneId, hasOptimized, reportStatus]
-        reportData.lands.forEach(land => {
-            const [x, y, sceneId, hasOptimized, reportStatus] = land;
-            const key = x + ',' + y;
-            const landData = {
-                x: x,
-                y: y,
-                sceneId: sceneId,
-                hasOptimizedAssets: hasOptimized === 1
+        function setupEventListeners() {
+            // View buttons
+            document.getElementById('viewScenes').addEventListener('click', () => setView('scenes'));
+            document.getElementById('viewOptimization').addEventListener('click', () => setView('optimization'));
+            document.getElementById('viewReports').addEventListener('click', () => setView('reports'));
+            
+            // Zoom buttons
+            document.getElementById('zoomIn').addEventListener('click', () => {
+                cellSize = Math.min(20, cellSize + 2);
+                resizeCanvas();
+                drawGrid();
+            });
+            
+            document.getElementById('zoomOut').addEventListener('click', () => {
+                cellSize = Math.max(1, cellSize - 2);
+                resizeCanvas();
+                drawGrid();
+            });
+            
+            document.getElementById('resetView').addEventListener('click', () => {
+                cellSize = 3;
+                offsetX = 0;
+                offsetY = 0;
+                resizeCanvas();
+                drawGrid();
+            });
+            
+            document.getElementById('downloadMap').addEventListener('click', () => {
+                const link = document.createElement('a');
+                link.download = `decentraland-world-map-${Date.now()}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+            
+            // Canvas events
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('click', handleClick);
+            canvas.addEventListener('wheel', handleWheel);
+            
+            // Modal close
+            closeModal.onclick = () => modal.style.display = 'none';
+            window.onclick = (event) => {
+                if (event.target == modal) modal.style.display = 'none';
             };
-            
-            // Add report info if exists
-            if (reportStatus !== undefined) {
-                landData.optimizationReport = {
-                    ok: reportStatus === 1,
-                    id: sceneId
-                };
-            }
-            
-            landsMap.set(key, landData);
-        });
+        }
+        
+        function setView(view) {
+            currentView = view;
+            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+            document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1)).classList.add('active');
+            updateLegend();
+            drawGrid();
+        }
         
         function resizeCanvas() {
             const size = GRID_SIZE * cellSize;
@@ -370,7 +534,6 @@ export function generateHTMLFromData(reportData) {
         
         function drawGrid() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
             ctx.save();
             ctx.translate(offsetX, offsetY);
             
@@ -409,34 +572,13 @@ export function generateHTMLFromData(reportData) {
                 }
             }
             
-            if (cellSize > 10) {
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 0.5;
-                for (let x = MIN_COORD; x <= MAX_COORD; x++) {
-                    const canvasX = (x - MIN_COORD) * cellSize;
-                    ctx.beginPath();
-                    ctx.moveTo(canvasX, 0);
-                    ctx.lineTo(canvasX, canvas.height);
-                    ctx.stroke();
-                }
-                for (let y = MIN_COORD; y <= MAX_COORD; y++) {
-                    const canvasY = (y - MIN_COORD) * cellSize;
-                    ctx.beginPath();
-                    ctx.moveTo(0, canvasY);
-                    ctx.lineTo(canvas.width, canvasY);
-                    ctx.stroke();
-                }
-            }
-            
             ctx.restore();
         }
         
         function updateLegend() {
             const legend = document.getElementById('legend');
-            legend.innerHTML = '';
-            
             if (currentView === 'optimization') {
-                legend.innerHTML = \`
+                legend.innerHTML = `
                     <div class="legend-item">
                         <div class="legend-color" style="background: #10b981;"></div>
                         <span>Optimized</span>
@@ -457,9 +599,9 @@ export function generateHTMLFromData(reportData) {
                         <div class="legend-color" style="background: #1a1a1a;"></div>
                         <span>Empty Land</span>
                     </div>
-                \`;
+                `;
             } else if (currentView === 'reports') {
-                legend.innerHTML = \`
+                legend.innerHTML = `
                     <div class="legend-item">
                         <div class="legend-color" style="background: #3b82f6;"></div>
                         <span>Success Report</span>
@@ -476,9 +618,9 @@ export function generateHTMLFromData(reportData) {
                         <div class="legend-color" style="background: #1a1a1a;"></div>
                         <span>Empty Land</span>
                     </div>
-                \`;
+                `;
             } else {
-                legend.innerHTML = \`
+                legend.innerHTML = `
                     <div class="legend-item">
                         <div class="legend-color" style="background: #1a1a1a;"></div>
                         <span>Empty Land</span>
@@ -487,7 +629,7 @@ export function generateHTMLFromData(reportData) {
                         <div class="legend-color" style="background: #667eea;"></div>
                         <span>Scene (colors vary)</span>
                     </div>
-                \`;
+                `;
             }
         }
         
@@ -509,7 +651,7 @@ export function generateHTMLFromData(reportData) {
             return null;
         }
         
-        canvas.addEventListener('mousemove', (e) => {
+        function handleMouseMove(e) {
             if (isDragging) {
                 if (e.shiftKey) {
                     offsetX = dragOffsetX + (e.clientX - dragStartX);
@@ -523,9 +665,9 @@ export function generateHTMLFromData(reportData) {
             const land = getLandAtPos(pos.x, pos.y);
             
             if (land) {
-                let info = \`Land: (\${land.x}, \${land.y})\`;
+                let info = `Land: (${land.x}, ${land.y})`;
                 if (land.data && land.data.sceneId) {
-                    info += \` | Scene: \${land.data.sceneId}\`;
+                    info += ` | Scene: ${land.data.sceneId}`;
                     if (land.data.hasOptimizedAssets) {
                         info += ' | ✅ Optimized';
                     } else if (land.data.optimizationReport) {
@@ -539,9 +681,9 @@ export function generateHTMLFromData(reportData) {
                 infoPanel.textContent = info;
                 canvas.style.cursor = land.data && land.data.sceneId ? 'pointer' : 'crosshair';
             }
-        });
+        }
         
-        canvas.addEventListener('mousedown', (e) => {
+        function handleMouseDown(e) {
             if (e.shiftKey) {
                 isDragging = true;
                 dragStartX = e.clientX;
@@ -550,25 +692,25 @@ export function generateHTMLFromData(reportData) {
                 dragOffsetY = offsetY;
                 canvas.style.cursor = 'grabbing';
             }
-        });
+        }
         
-        canvas.addEventListener('mouseup', (e) => {
+        function handleMouseUp(e) {
             isDragging = false;
             canvas.style.cursor = 'crosshair';
-        });
+        }
         
-        canvas.addEventListener('click', async (e) => {
+        async function handleClick(e) {
             if (e.shiftKey) return;
             
             const pos = getMousePos(e);
             const land = getLandAtPos(pos.x, pos.y);
             
             if (land && land.data && land.data.sceneId) {
-                showReportModal(land.data);
+                await showReportModal(land.data);
             }
-        });
+        }
         
-        canvas.addEventListener('wheel', (e) => {
+        function handleWheel(e) {
             e.preventDefault();
             const delta = e.deltaY > 0 ? -1 : 1;
             const newSize = Math.max(1, Math.min(20, cellSize + delta));
@@ -577,132 +719,49 @@ export function generateHTMLFromData(reportData) {
                 resizeCanvas();
                 drawGrid();
             }
-        });
+        }
         
         async function showReportModal(landData) {
             modal.style.display = 'block';
-            modalTitle.textContent = \`Optimization Report - Scene \${landData.sceneId}\`;
+            modalTitle.textContent = `Optimization Report - Scene ${landData.sceneId}`;
             modalBody.innerHTML = '<div class="loading">Loading report...</div>';
             
             if (landData.optimizationReport && landData.optimizationReport.id) {
                 try {
-                    const response = await fetch(\`\${OPTIMIZATION_URL}/\${landData.optimizationReport.id}-report.json\`);
+                    const response = await fetch(`${OPTIMIZATION_URL}/${landData.optimizationReport.id}-report.json`);
                     if (response.ok) {
                         const reportData = await response.json();
-                        modalBody.innerHTML = \`
-                            <h3>Status: \${reportData.success ? '✅ Success' : '❌ Failed'}</h3>
-                            \${reportData.error ? \`<p style="color: red;">Error: \${reportData.error}</p>\` : ''}
+                        modalBody.innerHTML = `
+                            <h3>Status: ${reportData.success ? '✅ Success' : '❌ Failed'}</h3>
+                            ${reportData.error ? `<p style="color: red;">Error: ${reportData.error}</p>` : ''}
                             <h4>Full Report:</h4>
-                            <pre>\${syntaxHighlight(JSON.stringify(reportData, null, 2))}</pre>
-                        \`;
+                            <pre>${JSON.stringify(reportData, null, 2)}</pre>
+                        `;
                     } else {
-                        modalBody.innerHTML = \`
-                            <p>Report status: \${landData.optimizationReport.ok ? 'Success' : 'Failed'}</p>
-                            \${landData.optimizationReport.err ? \`<p>Error: \${landData.optimizationReport.err}</p>\` : ''}
+                        modalBody.innerHTML = `
+                            <p>Report status: ${landData.optimizationReport.ok ? 'Success' : 'Failed'}</p>
                             <p style="color: #666;">Full report not available</p>
-                        \`;
+                        `;
                     }
                 } catch (error) {
                     modalBody.innerHTML = '<p style="color: red;">Error loading report</p>';
                 }
             } else if (landData.hasOptimizedAssets) {
-                modalBody.innerHTML = \`
+                modalBody.innerHTML = `
                     <h3>✅ Scene has optimized assets</h3>
                     <p>Optimized mobile version is available at:</p>
-                    <pre>\${OPTIMIZATION_URL}/\${landData.sceneId}-mobile.zip</pre>
-                \`;
+                    <pre>${OPTIMIZATION_URL}/${landData.sceneId}-mobile.zip</pre>
+                `;
             } else {
-                modalBody.innerHTML = \`
+                modalBody.innerHTML = `
                     <h3>❌ No optimization data</h3>
                     <p>This scene has not been processed by the optimization pipeline.</p>
-                \`;
+                `;
             }
         }
         
-        function syntaxHighlight(json) {
-            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-                let cls = 'json-value';
-                if (/^"/.test(match)) {
-                    if (/:$/.test(match)) {
-                        cls = 'json-key';
-                    } else {
-                        cls = 'json-string';
-                    }
-                } else if (/true|false/.test(match)) {
-                    cls = 'json-boolean';
-                } else if (/null/.test(match)) {
-                    cls = 'json-null';
-                }
-                return '<span class="' + cls + '">' + match + '</span>';
-            });
-        }
-        
-        closeModal.onclick = function() {
-            modal.style.display = 'none';
-        };
-        
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = 'none';
-            }
-        };
-        
-        document.getElementById('viewScenes').addEventListener('click', () => {
-            currentView = 'scenes';
-            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
-            document.getElementById('viewScenes').classList.add('active');
-            updateLegend();
-            drawGrid();
-        });
-        
-        document.getElementById('viewOptimization').addEventListener('click', () => {
-            currentView = 'optimization';
-            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
-            document.getElementById('viewOptimization').classList.add('active');
-            updateLegend();
-            drawGrid();
-        });
-        
-        document.getElementById('viewReports').addEventListener('click', () => {
-            currentView = 'reports';
-            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
-            document.getElementById('viewReports').classList.add('active');
-            updateLegend();
-            drawGrid();
-        });
-        
-        document.getElementById('zoomIn').addEventListener('click', () => {
-            cellSize = Math.min(20, cellSize + 2);
-            resizeCanvas();
-            drawGrid();
-        });
-        
-        document.getElementById('zoomOut').addEventListener('click', () => {
-            cellSize = Math.max(1, cellSize - 2);
-            resizeCanvas();
-            drawGrid();
-        });
-        
-        document.getElementById('resetView').addEventListener('click', () => {
-            cellSize = 3;
-            offsetX = 0;
-            offsetY = 0;
-            resizeCanvas();
-            drawGrid();
-        });
-        
-        document.getElementById('downloadMap').addEventListener('click', () => {
-            const link = document.createElement('a');
-            link.download = \`decentraland-world-map-\${Date.now()}.png\`;
-            link.href = canvas.toDataURL();
-            link.click();
-        });
-        
-        resizeCanvas();
-        updateLegend();
-        drawGrid();
+        // Load report data when page loads
+        loadReportData();
     </script>
 </body>
-</html>`;
-}
+</html>
