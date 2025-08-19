@@ -1,6 +1,7 @@
 import { DecentralandAPI } from './api/decentraland';
 import { DataProcessor } from './processor';
 import { ReportGenerator } from './report-generator';
+import { VercelUploader } from './vercel-uploader';
 import * as path from 'path';
 
 async function main() {
@@ -42,6 +43,11 @@ async function main() {
     
     console.log('\n✅ Report generation complete!');
     console.log(`📁 Report saved to: ${outputPath}`);
+    
+    // Step 5: Upload to Vercel if configured
+    const uploader = new VercelUploader();
+    await uploader.uploadReport(outputPath);
+    
     console.log('\n🌐 Open the HTML file in your browser to view the interactive map.');
     
   } catch (error) {

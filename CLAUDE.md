@@ -73,14 +73,15 @@ Vercel Environment Variables:
 ### Deployment Architecture
 
 **Vercel Serverless Functions**:
-- `api/index.js`: Serves the stored report at root URL
-- `api/upload-report.js`: Receives and stores reports from GitHub Actions
+- `api/index.js`: Serves the stored report from Blob Storage at root URL
+- `api/upload-report.js`: Receives report URL and stores content in Blob Storage
 
-**GitHub Actions → Vercel Flow**:
-1. Action generates report locally
-2. POSTs HTML to Vercel's `/api/upload-report` endpoint with authentication
-3. Vercel stores report in memory (resets on redeploy)
-4. Root URL serves the stored report
+**Deployment Flow**:
+1. `npm start` generates the report locally
+2. `VercelUploader` uploads HTML to transfer.sh (temporary storage)
+3. Sends URL to Vercel's `/api/upload-report` endpoint
+4. Vercel fetches content and stores in Blob Storage
+5. Root URL serves the report from Blob Storage
 
 ## Key Implementation Details
 
