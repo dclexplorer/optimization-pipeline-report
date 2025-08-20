@@ -159,10 +159,22 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
         
-        canvas {
+        .canvas-viewport {
+            width: 975px;
+            height: 975px;
+            overflow: hidden;
             border: 1px solid #ddd;
+            border-radius: 4px;
+            position: relative;
+            background: #f9f9f9;
+        }
+        
+        canvas {
             cursor: crosshair;
             display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
         
         .info-panel {
@@ -284,6 +296,9 @@
         <div class="header">
             <div class="container">
                 <h1>🗺️ Decentraland World Optimization Report</h1>
+                <div id="reportTimestamp" style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                    <!-- Timestamp will be populated here -->
+                </div>
                 <div class="stats-grid" id="statsGrid">
                     <!-- Stats will be populated here -->
                 </div>
@@ -307,7 +322,9 @@
             </div>
             
             <div class="canvas-container">
-                <canvas id="worldMap" width="975" height="975"></canvas>
+                <div class="canvas-viewport">
+                    <canvas id="worldMap" width="975" height="975"></canvas>
+                </div>
                 <div class="info-panel" id="infoPanel">
                     Hover over the map to see land information
                 </div>
@@ -426,6 +443,9 @@
                 // Display stats
                 displayStats(reportData.stats);
                 
+                // Display timestamp
+                displayTimestamp(reportData.generated);
+                
                 // Initialize canvas
                 initializeCanvas();
                 
@@ -438,6 +458,27 @@
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('errorMessage').textContent = error.message;
                 document.getElementById('error').classList.remove('hidden');
+            }
+        }
+        
+        function displayTimestamp(timestamp) {
+            const timestampEl = document.getElementById('reportTimestamp');
+            if (timestamp) {
+                const date = new Date(timestamp);
+                // Format with user's local timezone
+                const options = { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit',
+                    timeZoneName: 'short'
+                };
+                const formattedDate = date.toLocaleString(undefined, options);
+                timestampEl.innerHTML = `📅 Report generated: <strong>${formattedDate}</strong>`;
+            } else {
+                timestampEl.innerHTML = '📅 Report generation time not available';
             }
         }
         
@@ -513,6 +554,7 @@
                 cellSize = DEFAULT_CELL_SIZE;
                 offsetX = 0;
                 offsetY = 0;
+                canvas.style.transform = 'translate(0px, 0px)';
                 resizeCanvas();
                 drawGrid();
             });
@@ -557,14 +599,16 @@
         
         function drawGrid() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.save();
-            ctx.translate(offsetX, offsetY);
+            
+            // Apply offset using CSS transform instead of canvas translate
+            canvas.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
             
             for (let x = MIN_COORD; x <= MAX_COORD; x++) {
                 for (let y = MIN_COORD; y <= MAX_COORD; y++) {
                     const key = x + ',' + y;
                     const land = landsMap.get(key);
                     
+                    // No need to account for offset here since we're using CSS transform
                     const canvasX = (x - MIN_COORD) * cellSize;
                     const canvasY = (MAX_COORD - y) * cellSize;
                     
@@ -594,8 +638,6 @@
                     ctx.fillRect(canvasX, canvasY, cellSize - 0.5, cellSize - 0.5);
                 }
             }
-            
-            ctx.restore();
         }
         
         function updateLegend() {
@@ -665,6 +707,7 @@
         }
         
         function getLandAtPos(mouseX, mouseY) {
+            // Account for the canvas transform when calculating land position
             const x = Math.floor((mouseX - offsetX) / cellSize) + MIN_COORD;
             const y = MAX_COORD - Math.floor((mouseY - offsetY) / cellSize);
             
