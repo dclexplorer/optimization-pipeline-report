@@ -334,6 +334,13 @@
                         <span>Empty Land</span>
                     </div>
                 </div>
+                <div id="nonOptimizedList" class="hidden" style="margin-top: 20px; padding: 15px; background: rgba(255, 255, 255, 0.95); border-radius: 8px;">
+                    <h3 style="margin-bottom: 10px; color: #667eea;">Non-Optimized Scenes</h3>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 10px;">Click to copy the list of scene IDs for reprocessing:</p>
+                    <textarea id="nonOptimizedTextarea" readonly style="width: 100%; height: 150px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
+                    <button onclick="copyNonOptimizedList()" style="margin-top: 10px;">📋 Copy List</button>
+                    <span id="copyFeedback" style="margin-left: 10px; color: #10b981; display: none;">✓ Copied!</span>
+                </div>
             </div>
         </div>
     </div>
@@ -587,6 +594,16 @@
             currentView = view;
             document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
             document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1)).classList.add('active');
+            
+            // Show/hide non-optimized list for reports view
+            const nonOptimizedListEl = document.getElementById('nonOptimizedList');
+            if (view === 'reports') {
+                nonOptimizedListEl.classList.remove('hidden');
+                updateNonOptimizedList();
+            } else {
+                nonOptimizedListEl.classList.add('hidden');
+            }
+            
             updateLegend();
             drawGrid();
         }
@@ -811,6 +828,39 @@
                 resizeCanvas();
                 drawGrid();
             }, 50);
+        }
+        
+        function updateNonOptimizedList() {
+            const nonOptimizedScenes = new Set();
+            
+            // Collect all unique scene IDs that are not optimized
+            landsMap.forEach((land) => {
+                if (land.sceneId && !land.hasOptimizedAssets) {
+                    nonOptimizedScenes.add(land.sceneId);
+                }
+            });
+            
+            // Convert to sorted array and display
+            const sceneIds = Array.from(nonOptimizedScenes).sort();
+            const textarea = document.getElementById('nonOptimizedTextarea');
+            textarea.value = sceneIds.join('\n');
+            
+            // Update the header with count
+            const header = document.querySelector('#nonOptimizedList h3');
+            header.textContent = `Non-Optimized Scenes (${sceneIds.length})`;
+        }
+        
+        function copyNonOptimizedList() {
+            const textarea = document.getElementById('nonOptimizedTextarea');
+            textarea.select();
+            document.execCommand('copy');
+            
+            // Show feedback
+            const feedback = document.getElementById('copyFeedback');
+            feedback.style.display = 'inline';
+            setTimeout(() => {
+                feedback.style.display = 'none';
+            }, 2000);
         }
         
         async function showReportModal(landData) {
