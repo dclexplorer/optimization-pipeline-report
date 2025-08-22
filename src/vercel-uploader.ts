@@ -94,13 +94,15 @@ export class VercelUploader {
         }
       }
       
-      // Signal completion
-      console.log('   Finalizing upload...');
+      // Signal completion and update history
+      console.log('   Finalizing upload and updating history...');
+      const timestamp = new Date().toISOString();
       response = await axios.post(
         `${this.vercelUrl}/api/finalize-upload`,
         {
           totalChunks: chunks.length,
-          timestamp: new Date().toISOString(),
+          timestamp: timestamp,
+          stats: reportData.s, // Include stats for history tracking
         },
         {
           headers: {

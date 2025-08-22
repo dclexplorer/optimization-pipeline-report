@@ -9,6 +9,9 @@
     },
     "api/finalize-upload.js": {
       "maxDuration": 10
+    },
+    "api/store-history.js": {
+      "maxDuration": 10
     }
   }
 }

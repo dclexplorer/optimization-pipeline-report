@@ -296,8 +296,20 @@
         <div class="header">
             <div class="container">
                 <h1>🗺️ Decentraland World Optimization Report</h1>
-                <div id="reportTimestamp" style="color: #666; font-size: 14px; margin-bottom: 15px;">
-                    <!-- Timestamp will be populated here -->
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <div id="reportTimestamp" style="color: #666; font-size: 14px;">
+                        <!-- Timestamp will be populated here -->
+                    </div>
+                    <button id="viewHistory" onclick="toggleHistory()" style="padding: 6px 12px; font-size: 12px; background: #9333ea;">
+                        📊 View History
+                    </button>
+                </div>
+                <div id="historyPanel" class="hidden" style="background: rgba(255,255,255,0.95); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h3 style="margin-bottom: 10px; color: #667eea;">Historical Reports</h3>
+                    <div id="historyList" style="max-height: 200px; overflow-y: auto;">
+                        <!-- History entries will be populated here -->
+                    </div>
+                    <canvas id="historyChart" width="600" height="150" style="margin-top: 10px; display: none;"></canvas>
                 </div>
                 <div class="stats-grid" id="statsGrid">
                     <!-- Stats will be populated here -->
@@ -367,6 +379,7 @@
         let reportData = null;
         let sceneColors = {};
         let landsMap = new Map();
+        let historyData = null;
         
         // Canvas variables
         let canvas, ctx, infoPanel, modal, modalTitle, modalBody, closeModal, tooltip;
@@ -899,6 +912,151 @@
                     <h3>❌ No optimization data</h3>
                     <p>This scene has not been processed by the optimization pipeline.</p>
                 `;
+            }
+        }
+        
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${BLOB_BASE_URL}/history-index.json`);
+                if (response.ok) {
+                    historyData = await response.json();
+                    displayHistory();
+                }
+            } catch (error) {
+                console.log('No history available yet');
+            }
+        }
+        
+        function displayHistory() {
+            if (!historyData || !historyData.entries || historyData.entries.length === 0) {
+                document.getElementById('historyList').innerHTML = '<p style="color: #666;">No historical data available yet.</p>';
+                return;
+            }
+            
+            const historyList = document.getElementById('historyList');
+            let html = '<div style="font-size: 12px;">';
+            
+            // Group by date
+            const byDate = {};
+            historyData.entries.forEach(entry => {
+                const date = new Date(entry.timestamp).toLocaleDateString();
+                if (!byDate[date]) byDate[date] = [];
+                byDate[date].push(entry);
+            });
+            
+            // Display entries
+            Object.entries(byDate).forEach(([date, entries]) => {
+                html += `<div style="margin-bottom: 10px;">`;
+                html += `<strong style="color: #667eea;">${date}</strong>`;
+                entries.forEach(entry => {
+                    const time = new Date(entry.timestamp).toLocaleTimeString();
+                    const summary = entry.summary;
+                    if (summary) {
+                        html += `<div style="margin-left: 10px; padding: 5px; border-left: 2px solid #e5e7eb;">`;
+                        html += `<span style="color: #999;">${time}</span> - `;
+                        html += `Scenes: ${summary.totalScenes}, `;
+                        html += `Optimized: ${summary.scenesWithOptimizedAssets} `;
+                        html += `<span style="color: ${summary.optimizationPercentage > 50 ? '#10b981' : '#f97316'};">(${summary.optimizationPercentage.toFixed(1)}%)</span>`;
+                        html += `</div>`;
+                    }
+                });
+                html += `</div>`;
+            });
+            
+            html += '</div>';
+            historyList.innerHTML = html;
+            
+            // Draw optimization trend chart if we have data
+            drawHistoryChart();
+        }
+        
+        function drawHistoryChart() {
+            if (!historyData || !historyData.entries || historyData.entries.length < 2) return;
+            
+            const chartCanvas = document.getElementById('historyChart');
+            const chartCtx = chartCanvas.getContext('2d');
+            chartCanvas.style.display = 'block';
+            
+            // Clear canvas
+            chartCtx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+            
+            // Get data points (last 14 days)
+            const dataPoints = historyData.entries
+                .slice(0, 28) // Last 14 days * 2 reports per day
+                .filter(e => e.summary)
+                .reverse(); // Oldest first
+            
+            if (dataPoints.length < 2) return;
+            
+            const width = chartCanvas.width;
+            const height = chartCanvas.height;
+            const padding = 30;
+            const graphWidth = width - padding * 2;
+            const graphHeight = height - padding * 2;
+            
+            // Draw axes
+            chartCtx.strokeStyle = '#e5e7eb';
+            chartCtx.lineWidth = 1;
+            chartCtx.beginPath();
+            chartCtx.moveTo(padding, padding);
+            chartCtx.lineTo(padding, height - padding);
+            chartCtx.lineTo(width - padding, height - padding);
+            chartCtx.stroke();
+            
+            // Calculate scale
+            const maxPercentage = Math.max(...dataPoints.map(d => d.summary.optimizationPercentage));
+            const minPercentage = Math.min(...dataPoints.map(d => d.summary.optimizationPercentage));
+            const range = maxPercentage - minPercentage || 1;
+            
+            // Draw optimization percentage line
+            chartCtx.strokeStyle = '#667eea';
+            chartCtx.lineWidth = 2;
+            chartCtx.beginPath();
+            
+            dataPoints.forEach((point, index) => {
+                const x = padding + (index / (dataPoints.length - 1)) * graphWidth;
+                const y = height - padding - ((point.summary.optimizationPercentage - minPercentage) / range) * graphHeight;
+                
+                if (index === 0) {
+                    chartCtx.moveTo(x, y);
+                } else {
+                    chartCtx.lineTo(x, y);
+                }
+                
+                // Draw point
+                chartCtx.fillStyle = '#667eea';
+                chartCtx.beginPath();
+                chartCtx.arc(x, y, 3, 0, Math.PI * 2);
+                chartCtx.fill();
+            });
+            
+            chartCtx.stroke();
+            
+            // Draw labels
+            chartCtx.fillStyle = '#666';
+            chartCtx.font = '10px sans-serif';
+            chartCtx.textAlign = 'left';
+            chartCtx.fillText(`${minPercentage.toFixed(0)}%`, 5, height - padding);
+            chartCtx.fillText(`${maxPercentage.toFixed(0)}%`, 5, padding + 10);
+            
+            // Draw title
+            chartCtx.fillStyle = '#333';
+            chartCtx.font = '12px sans-serif';
+            chartCtx.textAlign = 'center';
+            chartCtx.fillText('Optimization Coverage Trend', width / 2, 15);
+        }
+        
+        function toggleHistory() {
+            const historyPanel = document.getElementById('historyPanel');
+            const button = document.getElementById('viewHistory');
+            
+            if (historyPanel.classList.contains('hidden')) {
+                historyPanel.classList.remove('hidden');
+                button.textContent = '📊 Hide History';
+                loadHistory();
+            } else {
+                historyPanel.classList.add('hidden');
+                button.textContent = '📊 View History';
             }
         }
         
