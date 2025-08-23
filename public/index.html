@@ -305,15 +305,17 @@
                     </button>
                 </div>
                 <div id="historyPanel" class="hidden" style="background: rgba(255,255,255,0.95); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <div style="display: flex; gap: 20px; align-items: flex-start;">
-                        <div style="flex: 1;">
-                            <h3 style="margin-bottom: 10px; color: #667eea;">Historical Reports</h3>
-                            <div id="historyList" style="max-height: 200px; overflow-y: auto;">
+                    <h3 style="margin-bottom: 15px; color: #667eea;">Historical Reports</h3>
+                    <div style="display: flex; gap: 30px; align-items: flex-start;">
+                        <div style="flex: 1; min-width: 300px;">
+                            <div id="historyList" style="max-height: 200px; overflow-y: auto; padding-right: 10px;">
                                 <!-- History entries will be populated here -->
                             </div>
                         </div>
-                        <div style="flex: 1;">
-                            <canvas id="historyChart" width="400" height="180" style="display: none;"></canvas>
+                        <div style="flex: 1; min-width: 400px;">
+                            <div style="border: 1px solid #e5e7eb; border-radius: 4px; padding: 10px; background: white;">
+                                <canvas id="historyChart" width="380" height="180" style="display: none;"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -997,23 +999,25 @@
             
             const width = chartCanvas.width;
             const height = chartCanvas.height;
-            const padding = 40;
-            const graphWidth = width - padding * 2;
-            const graphHeight = height - padding * 2;
+            const topPadding = 30;
+            const bottomPadding = 35;
+            const sidePadding = 40;
+            const graphWidth = width - sidePadding * 2;
+            const graphHeight = height - topPadding - bottomPadding;
             
-            // Draw title
-            chartCtx.fillStyle = '#333';
-            chartCtx.font = 'bold 14px sans-serif';
+            // Draw subtitle
+            chartCtx.fillStyle = '#666';
+            chartCtx.font = '12px sans-serif';
             chartCtx.textAlign = 'center';
-            chartCtx.fillText('Optimization Coverage Trend', width / 2, 20);
+            chartCtx.fillText('Optimization Coverage Trend', width / 2, 15);
             
             // Draw axes
             chartCtx.strokeStyle = '#e5e7eb';
             chartCtx.lineWidth = 1;
             chartCtx.beginPath();
-            chartCtx.moveTo(padding, padding);
-            chartCtx.lineTo(padding, height - padding);
-            chartCtx.lineTo(width - padding, height - padding);
+            chartCtx.moveTo(sidePadding, topPadding);
+            chartCtx.lineTo(sidePadding, height - bottomPadding);
+            chartCtx.lineTo(width - sidePadding, height - bottomPadding);
             chartCtx.stroke();
             
             // Calculate scale
@@ -1025,10 +1029,10 @@
             chartCtx.strokeStyle = '#f3f4f6';
             chartCtx.lineWidth = 0.5;
             for (let i = 0; i <= 5; i++) {
-                const y = padding + (i / 5) * graphHeight;
+                const y = topPadding + (i / 5) * graphHeight;
                 chartCtx.beginPath();
-                chartCtx.moveTo(padding, y);
-                chartCtx.lineTo(width - padding, y);
+                chartCtx.moveTo(sidePadding, y);
+                chartCtx.lineTo(width - sidePadding, y);
                 chartCtx.stroke();
             }
             
@@ -1038,8 +1042,8 @@
             chartCtx.beginPath();
             
             dataPoints.forEach((point, index) => {
-                const x = padding + (index / (dataPoints.length - 1)) * graphWidth;
-                const y = height - padding - ((point.summary.optimizationPercentage - minPercentage) / range) * graphHeight;
+                const x = sidePadding + (index / (dataPoints.length - 1)) * graphWidth;
+                const y = height - bottomPadding - ((point.summary.optimizationPercentage - minPercentage) / range) * graphHeight;
                 
                 if (index === 0) {
                     chartCtx.moveTo(x, y);
@@ -1052,8 +1056,8 @@
             
             // Draw points
             dataPoints.forEach((point, index) => {
-                const x = padding + (index / (dataPoints.length - 1)) * graphWidth;
-                const y = height - padding - ((point.summary.optimizationPercentage - minPercentage) / range) * graphHeight;
+                const x = sidePadding + (index / (dataPoints.length - 1)) * graphWidth;
+                const y = height - bottomPadding - ((point.summary.optimizationPercentage - minPercentage) / range) * graphHeight;
                 
                 chartCtx.fillStyle = '#667eea';
                 chartCtx.beginPath();
@@ -1067,16 +1071,16 @@
             chartCtx.textAlign = 'right';
             for (let i = 0; i <= 5; i++) {
                 const value = minPercentage + (i / 5) * range;
-                const y = height - padding - (i / 5) * graphHeight;
-                chartCtx.fillText(`${value.toFixed(1)}%`, padding - 5, y + 3);
+                const y = height - bottomPadding - (i / 5) * graphHeight;
+                chartCtx.fillText(`${value.toFixed(1)}%`, sidePadding - 5, y + 3);
             }
             
             // Draw date labels on X-axis
             chartCtx.textAlign = 'center';
             const firstDate = new Date(dataPoints[0].timestamp).toLocaleDateString('en', {month: 'short', day: 'numeric'});
             const lastDate = new Date(dataPoints[dataPoints.length - 1].timestamp).toLocaleDateString('en', {month: 'short', day: 'numeric'});
-            chartCtx.fillText(firstDate, padding, height - padding + 15);
-            chartCtx.fillText(lastDate, width - padding, height - padding + 15);
+            chartCtx.fillText(firstDate, sidePadding, height - bottomPadding + 15);
+            chartCtx.fillText(lastDate, width - sidePadding, height - bottomPadding + 15);
         }
         
         function toggleHistory() {
