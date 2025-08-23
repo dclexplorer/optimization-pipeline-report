@@ -305,11 +305,17 @@
                     </button>
                 </div>
                 <div id="historyPanel" class="hidden" style="background: rgba(255,255,255,0.95); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <h3 style="margin-bottom: 10px; color: #667eea;">Historical Reports</h3>
-                    <div id="historyList" style="max-height: 200px; overflow-y: auto;">
-                        <!-- History entries will be populated here -->
+                    <div style="display: flex; gap: 20px; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <h3 style="margin-bottom: 10px; color: #667eea;">Historical Reports</h3>
+                            <div id="historyList" style="max-height: 200px; overflow-y: auto;">
+                                <!-- History entries will be populated here -->
+                            </div>
+                        </div>
+                        <div style="flex: 1;">
+                            <canvas id="historyChart" width="400" height="180" style="display: none;"></canvas>
+                        </div>
                     </div>
-                    <canvas id="historyChart" width="600" height="150" style="margin-top: 10px; display: none;"></canvas>
                 </div>
                 <div class="stats-grid" id="statsGrid">
                     <!-- Stats will be populated here -->
@@ -977,8 +983,9 @@
             const chartCtx = chartCanvas.getContext('2d');
             chartCanvas.style.display = 'block';
             
-            // Clear canvas
-            chartCtx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+            // Clear canvas with white background
+            chartCtx.fillStyle = 'white';
+            chartCtx.fillRect(0, 0, chartCanvas.width, chartCanvas.height);
             
             // Get data points (last 14 days)
             const dataPoints = historyData.entries
@@ -990,9 +997,15 @@
             
             const width = chartCanvas.width;
             const height = chartCanvas.height;
-            const padding = 30;
+            const padding = 40;
             const graphWidth = width - padding * 2;
             const graphHeight = height - padding * 2;
+            
+            // Draw title
+            chartCtx.fillStyle = '#333';
+            chartCtx.font = 'bold 14px sans-serif';
+            chartCtx.textAlign = 'center';
+            chartCtx.fillText('Optimization Coverage Trend', width / 2, 20);
             
             // Draw axes
             chartCtx.strokeStyle = '#e5e7eb';
@@ -1008,6 +1021,17 @@
             const minPercentage = Math.min(...dataPoints.map(d => d.summary.optimizationPercentage));
             const range = maxPercentage - minPercentage || 1;
             
+            // Draw grid lines
+            chartCtx.strokeStyle = '#f3f4f6';
+            chartCtx.lineWidth = 0.5;
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (i / 5) * graphHeight;
+                chartCtx.beginPath();
+                chartCtx.moveTo(padding, y);
+                chartCtx.lineTo(width - padding, y);
+                chartCtx.stroke();
+            }
+            
             // Draw optimization percentage line
             chartCtx.strokeStyle = '#667eea';
             chartCtx.lineWidth = 2;
@@ -1022,28 +1046,37 @@
                 } else {
                     chartCtx.lineTo(x, y);
                 }
+            });
+            
+            chartCtx.stroke();
+            
+            // Draw points
+            dataPoints.forEach((point, index) => {
+                const x = padding + (index / (dataPoints.length - 1)) * graphWidth;
+                const y = height - padding - ((point.summary.optimizationPercentage - minPercentage) / range) * graphHeight;
                 
-                // Draw point
                 chartCtx.fillStyle = '#667eea';
                 chartCtx.beginPath();
                 chartCtx.arc(x, y, 3, 0, Math.PI * 2);
                 chartCtx.fill();
             });
             
-            chartCtx.stroke();
-            
-            // Draw labels
+            // Draw Y-axis labels
             chartCtx.fillStyle = '#666';
             chartCtx.font = '10px sans-serif';
-            chartCtx.textAlign = 'left';
-            chartCtx.fillText(`${minPercentage.toFixed(0)}%`, 5, height - padding);
-            chartCtx.fillText(`${maxPercentage.toFixed(0)}%`, 5, padding + 10);
+            chartCtx.textAlign = 'right';
+            for (let i = 0; i <= 5; i++) {
+                const value = minPercentage + (i / 5) * range;
+                const y = height - padding - (i / 5) * graphHeight;
+                chartCtx.fillText(`${value.toFixed(1)}%`, padding - 5, y + 3);
+            }
             
-            // Draw title
-            chartCtx.fillStyle = '#333';
-            chartCtx.font = '12px sans-serif';
+            // Draw date labels on X-axis
             chartCtx.textAlign = 'center';
-            chartCtx.fillText('Optimization Coverage Trend', width / 2, 15);
+            const firstDate = new Date(dataPoints[0].timestamp).toLocaleDateString('en', {month: 'short', day: 'numeric'});
+            const lastDate = new Date(dataPoints[dataPoints.length - 1].timestamp).toLocaleDateString('en', {month: 'short', day: 'numeric'});
+            chartCtx.fillText(firstDate, padding, height - padding + 15);
+            chartCtx.fillText(lastDate, width - padding, height - padding + 15);
         }
         
         function toggleHistory() {
