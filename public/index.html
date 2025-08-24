@@ -391,7 +391,7 @@
         const MAX_COORD = 175;
         const GRID_SIZE = MAX_COORD - MIN_COORD + 1;
         const OPTIMIZATION_URL = 'https://optimized-assets.dclexplorer.com/v1';
-        const BLOB_BASE_URL = 'https://arzlqs3tufwp7az7.public.blob.vercel-storage.com';
+        const R2_BASE_URL = 'https://reports.dclexplorer.com';
         
         let reportData = null;
         let sceneColors = {};
@@ -416,48 +416,25 @@
         
         async function loadReportData() {
             try {
-                // First check if upload is complete
-                const completeResponse = await fetch(`${BLOB_BASE_URL}/report-complete.json`);
-                if (!completeResponse.ok) {
-                    throw new Error('No complete report found. Waiting for first report generation.');
-                }
-                const completeInfo = await completeResponse.json();
-                
-                // Fetch metadata
-                const metadataResponse = await fetch(`${BLOB_BASE_URL}/report-metadata.json`);
-                if (!metadataResponse.ok) {
-                    throw new Error('Metadata not found');
-                }
-                const metadata = await metadataResponse.json();
-                
-                // Fetch and reassemble chunks
-                const allLands = [];
-                for (let i = 0; i < completeInfo.totalChunks; i++) {
-                    const chunkResponse = await fetch(`${BLOB_BASE_URL}/report-chunk-${i}.json`);
-                    if (!chunkResponse.ok) {
-                        console.warn(`Chunk ${i} not found, skipping...`);
-                        continue;
-                    }
-                    const chunkData = await chunkResponse.json();
-                    allLands.push(...chunkData);
+                // Fetch report directly from CloudFlare R2
+                const reportResponse = await fetch(`${R2_BASE_URL}/optimization-pipeline/report.json`);
+                if (!reportResponse.ok) {
+                    throw new Error('Report not found. Waiting for first report generation.');
                 }
                 
-                // Reconstruct report data
-                reportData = {
-                    lands: allLands,
-                    stats: metadata.s,
-                    colorIndices: metadata.c,
-                    generated: metadata.g
-                };
+                reportData = await reportResponse.json();
+                
+                // reportData already has the structure:
+                // { l: lands[], s: stats, c: colorIndices, g: generated }
                 
                 // Generate colors from indices
-                Object.entries(reportData.colorIndices).forEach(([sceneId, index]) => {
+                Object.entries(reportData.c).forEach(([sceneId, index]) => {
                     const hue = (index * 137.5) % 360;
                     sceneColors[sceneId] = `hsl(${hue}, 70%, 50%)`;
                 });
                 
                 // Build lands map
-                reportData.lands.forEach(land => {
+                reportData.l.forEach(land => {
                     const [x, y, sceneId, hasOptimized, reportStatus] = land;
                     const key = x + ',' + y;
                     const landData = {
@@ -478,10 +455,10 @@
                 });
                 
                 // Display stats
-                displayStats(reportData.stats);
+                displayStats(reportData.s);
                 
                 // Display timestamp
-                displayTimestamp(reportData.generated);
+                displayTimestamp(reportData.g);
                 
                 // Initialize canvas
                 initializeCanvas();
@@ -923,7 +900,7 @@
         
         async function loadHistory() {
             try {
-                const response = await fetch(`${BLOB_BASE_URL}/history-index.json`);
+                const response = await fetch('/api/get-history');
                 if (response.ok) {
                     historyData = await response.json();
                     displayHistory();

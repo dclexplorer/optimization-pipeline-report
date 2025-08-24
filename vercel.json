@@ -1,16 +1,10 @@
 {
   "outputDirectory": "public",
   "functions": {
-    "api/upload-metadata.js": {
+    "api/update-history.js": {
       "maxDuration": 10
     },
-    "api/upload-chunk.js": {
-      "maxDuration": 10
-    },
-    "api/finalize-upload.js": {
-      "maxDuration": 10
-    },
-    "api/store-history.js": {
+    "api/get-history.js": {
       "maxDuration": 10
     }
   }

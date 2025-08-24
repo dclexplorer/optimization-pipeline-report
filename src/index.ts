@@ -1,7 +1,7 @@
 import { DecentralandAPI } from './api/decentraland';
 import { DataProcessor } from './processor';
 import { ReportGenerator } from './report-generator';
-import { VercelUploader } from './vercel-uploader';
+import { R2Uploader } from './r2-uploader';
 import * as path from 'path';
 
 async function main() {
@@ -38,8 +38,8 @@ async function main() {
     const generator = new ReportGenerator();
     const reportData = generator.generateReportData(worldData, stats);
     
-    // Step 5: Upload JSON data to Vercel if configured
-    const uploader = new VercelUploader();
+    // Step 5: Upload JSON data to CloudFlare R2
+    const uploader = new R2Uploader();
     await uploader.uploadReportData(reportData);
     
     // Step 6: Generate local HTML report for testing
