@@ -1,5 +1,4 @@
 // Vercel serverless function to update history in PostgreSQL
-import { sql } from '@vercel/postgres';
 
 export const config = {
   api: {
@@ -22,6 +21,17 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Check if database is configured
+    if (!process.env.POSTGRES_URL) {
+      console.log('PostgreSQL not configured yet');
+      return res.status(200).json({ 
+        success: false,
+        message: 'Database not configured. Please set up PostgreSQL in Vercel.'
+      });
+    }
+
+    const { sql } = await import('@vercel/postgres');
+    
     // Create table if it doesn't exist
     await sql`
       CREATE TABLE IF NOT EXISTS optimization_history (

@@ -1,6 +1,4 @@
 // Vercel serverless function to get history from PostgreSQL
-import { sql } from '@vercel/postgres';
-
 export const config = {
   api: {
     bodyParser: false,
@@ -13,6 +11,34 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Check if database is configured
+    if (!process.env.POSTGRES_URL) {
+      console.log('PostgreSQL not configured yet');
+      return res.status(200).json({ 
+        entries: [],
+        message: 'Database not configured. History will be available after database setup.'
+      });
+    }
+
+    const { sql } = await import('@vercel/postgres');
+    
+    // First check if the table exists
+    const tableCheck = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'optimization_history'
+      );
+    `;
+    
+    if (!tableCheck.rows[0].exists) {
+      console.log('History table does not exist yet');
+      return res.status(200).json({ 
+        entries: [],
+        message: 'History table will be created on first report generation.'
+      });
+    }
+
     // Get last 30 days of history
     const { rows } = await sql`
       SELECT 
@@ -52,8 +78,12 @@ export default async function handler(req, res) {
 
     res.status(200).json(history);
   } catch (error) {
-    console.error('Error fetching history:', error);
-    // Return empty history if table doesn't exist yet
-    res.status(200).json({ entries: [] });
+    console.error('Error fetching history:', error.message);
+    // Return empty history with error details for debugging
+    res.status(200).json({ 
+      entries: [],
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Database error',
+      message: 'Unable to fetch history. Database may not be configured.'
+    });
   }
 }
