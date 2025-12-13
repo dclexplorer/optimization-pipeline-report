@@ -34,16 +34,8 @@ export function QueueStatus({ queue }: QueueStatusProps) {
       <h3>Queue Status</h3>
       <div className="queue-stats">
         <div className="queue-stat">
-          <div className="stat-value">{queue.messagesPublished.toLocaleString()}</div>
-          <div className="stat-label">Total Published</div>
-        </div>
-        <div className="queue-stat">
-          <div className="stat-value">{queue.messagesInFlight}</div>
-          <div className="stat-label">In Flight</div>
-        </div>
-        <div className="queue-stat">
-          <div className="stat-value">{queue.publishRatePerMin.toFixed(1)}/min</div>
-          <div className="stat-label">Publish Rate</div>
+          <div className="stat-value">{queue.queueDepth.toLocaleString()}</div>
+          <div className="stat-label">Queue Depth</div>
         </div>
         <div className="queue-stat">
           <div className="stat-value">{formatTimeAgo(queue.lastUpdated)}</div>

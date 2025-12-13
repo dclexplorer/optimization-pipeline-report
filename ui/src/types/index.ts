@@ -94,9 +94,7 @@ export interface WorldWithOptimization {
 
 // Pipeline Monitoring types
 export interface QueueMetrics {
-  messagesPublished: number;
-  messagesInFlight: number;
-  publishRatePerMin: number;
+  queueDepth: number;
   lastUpdated: string;
 }
 

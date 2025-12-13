@@ -24,9 +24,7 @@ export default async function handler(req, res) {
 
   const {
     secret,
-    messagesPublished,
-    messagesInFlight,
-    publishRatePerMin
+    queueDepth
   } = req.body;
 
   const expectedSecret = process.env.MONITORING_SECRET;
@@ -35,8 +33,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  if (messagesPublished === undefined) {
-    return res.status(400).json({ error: 'Missing required field: messagesPublished' });
+  if (queueDepth === undefined) {
+    return res.status(400).json({ error: 'Missing required field: queueDepth' });
   }
 
   try {
@@ -54,23 +52,13 @@ export default async function handler(req, res) {
       CREATE TABLE IF NOT EXISTS pipeline_queue_metrics (
         id SERIAL PRIMARY KEY,
         timestamp TIMESTAMP DEFAULT NOW(),
-        messages_published INTEGER NOT NULL,
-        messages_in_flight INTEGER DEFAULT 0,
-        publish_rate_per_min FLOAT DEFAULT 0
+        queue_depth INTEGER DEFAULT 0
       )
     `;
 
     // Insert new metrics entry
     await sql`
-      INSERT INTO pipeline_queue_metrics (
-        messages_published,
-        messages_in_flight,
-        publish_rate_per_min
-      ) VALUES (
-        ${messagesPublished},
-        ${messagesInFlight || 0},
-        ${publishRatePerMin || 0}
-      )
+      INSERT INTO pipeline_queue_metrics (queue_depth) VALUES (${queueDepth})
     `;
 
     // Keep only the last 1000 entries

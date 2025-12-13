@@ -45,14 +45,15 @@ export default async function handler(req, res) {
       )
     `;
 
+    // Drop old queue metrics table and recreate with new schema
+    await sql`DROP TABLE IF EXISTS pipeline_queue_metrics`;
+
     // Create pipeline_queue_metrics table
     await sql`
       CREATE TABLE IF NOT EXISTS pipeline_queue_metrics (
         id SERIAL PRIMARY KEY,
         timestamp TIMESTAMP DEFAULT NOW(),
-        messages_published INTEGER NOT NULL,
-        messages_in_flight INTEGER DEFAULT 0,
-        publish_rate_per_min FLOAT DEFAULT 0
+        queue_depth INTEGER DEFAULT 0
       )
     `;
 

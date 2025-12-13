@@ -30,11 +30,7 @@ export default async function handler(req, res) {
     let queue = null;
     try {
       const queueResult = await sql`
-        SELECT
-          messages_published,
-          messages_in_flight,
-          publish_rate_per_min,
-          timestamp
+        SELECT queue_depth, timestamp
         FROM pipeline_queue_metrics
         ORDER BY timestamp DESC
         LIMIT 1
@@ -43,9 +39,7 @@ export default async function handler(req, res) {
       if (queueResult.rows.length > 0) {
         const row = queueResult.rows[0];
         queue = {
-          messagesPublished: row.messages_published,
-          messagesInFlight: row.messages_in_flight,
-          publishRatePerMin: row.publish_rate_per_min,
+          queueDepth: row.queue_depth,
           lastUpdated: row.timestamp
         };
       }
