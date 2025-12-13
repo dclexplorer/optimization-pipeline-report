@@ -80,7 +80,7 @@ export interface HistoryEntry {
 }
 
 export type MapView = 'scenes' | 'optimization' | 'reports';
-export type TabName = 'overview' | 'optimization' | 'history' | 'worlds';
+export type TabName = 'overview' | 'optimization' | 'history' | 'worlds' | 'pipeline';
 
 // World types
 export interface WorldWithOptimization {
@@ -90,4 +90,43 @@ export interface WorldWithOptimization {
   thumbnail?: string;
   parcels: number;
   hasOptimizedAssets: boolean;
+}
+
+// Pipeline Monitoring types
+export interface QueueMetrics {
+  messagesPublished: number;
+  messagesInFlight: number;
+  publishRatePerMin: number;
+  lastUpdated: string;
+}
+
+export type ConsumerStatus = 'idle' | 'processing' | 'offline';
+
+export interface Consumer {
+  id: string;
+  processMethod: string;
+  status: ConsumerStatus;
+  currentSceneId?: string;
+  currentStep?: string;
+  progressPercent?: number;
+  startedAt?: string;
+  lastHeartbeat: string;
+  jobsCompleted: number;
+  jobsFailed: number;
+  avgProcessingTimeMs: number;
+}
+
+export interface ProcessingHistoryEntry {
+  consumerId: string;
+  sceneId: string;
+  processMethod: string;
+  status: 'success' | 'failed';
+  durationMs: number;
+  completedAt: string;
+}
+
+export interface MonitoringData {
+  queue: QueueMetrics | null;
+  consumers: Consumer[];
+  recentHistory: ProcessingHistoryEntry[];
 }

@@ -12,6 +12,7 @@ import { Tooltip } from './Tooltip';
 import { ReportModal } from './ReportModal';
 import { HistoryView } from './HistoryView';
 import { WorldsList } from './WorldsList';
+import { PipelineMonitor } from './PipelineMonitor';
 
 export default function App() {
   const { data, isLoading, error } = useReportData();
@@ -107,6 +108,12 @@ export default function App() {
       {activeTab === 'worlds' && (
         <div className="tab-content active">
           <WorldsList worlds={data.worlds} stats={data.worldsStats} />
+        </div>
+      )}
+
+      {activeTab === 'pipeline' && (
+        <div className="tab-content active">
+          <PipelineMonitor />
         </div>
       )}
 

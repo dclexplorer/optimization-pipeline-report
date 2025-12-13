@@ -10,6 +10,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
     { id: 'overview', label: 'Overview' },
     { id: 'optimization', label: 'Optimization Status' },
     { id: 'worlds', label: 'Worlds' },
+    { id: 'pipeline', label: 'Pipeline' },
     { id: 'history', label: 'History' },
   ];
 
