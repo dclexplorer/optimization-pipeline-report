@@ -11,6 +11,7 @@ import { Legend } from './Legend';
 import { Tooltip } from './Tooltip';
 import { ReportModal } from './ReportModal';
 import { HistoryView } from './HistoryView';
+import { WorldsList } from './WorldsList';
 
 export default function App() {
   const { data, isLoading, error } = useReportData();
@@ -100,6 +101,12 @@ export default function App() {
               <Legend view={optimizationMapView} />
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'worlds' && (
+        <div className="tab-content active">
+          <WorldsList worlds={data.worlds} stats={data.worldsStats} />
         </div>
       )}
 

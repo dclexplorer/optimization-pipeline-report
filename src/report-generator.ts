@@ -1,7 +1,12 @@
-import { WorldData } from './types';
+import { WorldData, WorldWithOptimization, WorldsStats } from './types';
+
+interface WorldsData {
+  worlds: WorldWithOptimization[];
+  stats: WorldsStats;
+}
 
 export class ReportGenerator {
-  public generateReportData(worldData: WorldData, stats: any): any {
+  public generateReportData(worldData: WorldData, stats: any, worldsData?: WorldsData): any {
     const landsArray = Array.from(worldData.lands.values());
 
     // ULTRA COMPRESSED: Only include occupied lands to drastically reduce size
@@ -34,12 +39,26 @@ export class ReportGenerator {
       sceneColorIndices[sceneId] = index;
     });
 
+    // Compress worlds data
+    // Format: [name, sceneId, title, thumbnail, parcels, hasOptimized]
+    const compressedWorlds = worldsData?.worlds.map(world => [
+      world.name,
+      world.sceneId,
+      world.title,
+      world.thumbnail || '',
+      world.parcels,
+      world.hasOptimizedAssets ? 1 : 0
+    ]) || [];
+
     return {
       // Use abbreviated keys
       l: occupiedLands, // lands (only occupied)
       s: stats, // stats
       c: sceneColorIndices, // color indices for scenes
-      g: Date.now() // generated timestamp (shorter than ISO string)
+      g: Date.now(), // generated timestamp (shorter than ISO string)
+      // Worlds data
+      w: compressedWorlds, // worlds array
+      ws: worldsData?.stats || null // worlds stats
     };
   }
 }

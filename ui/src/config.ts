@@ -13,6 +13,9 @@ export const CONFIG = {
 
   // Vercel app URL (for API routes)
   VERCEL_APP_URL: 'https://optimization-pipeline-report.vercel.app',
+
+  // Worlds content server API
+  WORLDS_API_URL: 'https://worlds-content-server.decentraland.org',
 } as const;
 
 // Derived URLs
@@ -20,6 +23,11 @@ export const URLS = {
   // Full URL for fetching report data
   get reportData() {
     return `${CONFIG.REPORTS_API_URL}/${CONFIG.REPORT_DATA_PATH}`;
+  },
+
+  // Full URL for fetching worlds list
+  get worldsList() {
+    return `${CONFIG.WORLDS_API_URL}/index`;
   },
 
   // Get scene report URL

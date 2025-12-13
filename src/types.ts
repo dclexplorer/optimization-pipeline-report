@@ -35,3 +35,34 @@ export interface WorldData {
   lands: Map<string, LandData>;
   scenes: Map<string, Scene>;
 }
+
+// Decentraland Worlds (separate from Genesis City)
+export interface WorldScene {
+  id: string;
+  title: string;
+  description?: string;
+  thumbnail?: string;
+  pointers: string[];
+  timestamp: number;
+}
+
+export interface World {
+  name: string;
+  scenes: WorldScene[];
+}
+
+export interface WorldWithOptimization {
+  name: string;
+  sceneId: string;
+  title: string;
+  thumbnail?: string;
+  parcels: number;
+  hasOptimizedAssets: boolean;
+}
+
+export interface WorldsStats {
+  totalWorlds: number;
+  optimizedWorlds: number;
+  notOptimizedWorlds: number;
+  optimizationPercentage: number;
+}

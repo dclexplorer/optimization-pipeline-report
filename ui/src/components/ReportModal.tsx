@@ -4,6 +4,7 @@ import { URLS } from '../config';
 interface ReportModalProps {
   sceneId: string | null;
   onClose: () => void;
+  title?: string;
 }
 
 function syntaxHighlight(json: string): string {
@@ -32,7 +33,7 @@ function syntaxHighlight(json: string): string {
   );
 }
 
-export function ReportModal({ sceneId, onClose }: ReportModalProps) {
+export function ReportModal({ sceneId, onClose, title }: ReportModalProps) {
   const [content, setContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +95,7 @@ export function ReportModal({ sceneId, onClose }: ReportModalProps) {
     <div className="modal show" onClick={handleBackdropClick}>
       <div className="modal-content">
         <div className="modal-header">
-          <div className="modal-title">Report: {sceneId}</div>
+          <div className="modal-title">{title || `Report: ${sceneId}`}</div>
           <button className="modal-close" onClick={onClose}>
             &times;
           </button>

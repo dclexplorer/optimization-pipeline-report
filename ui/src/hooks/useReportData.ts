@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { CompressedReportData, LandData, Stats } from '../types';
+import type { CompressedReportData, LandData, Stats, WorldWithOptimization, WorldsStats } from '../types';
 import { URLS } from '../config';
 
 interface ReportData {
@@ -7,6 +7,8 @@ interface ReportData {
   stats: Stats;
   sceneColorIndices: Record<string, number>;
   generatedAt: number;
+  worlds: WorldWithOptimization[];
+  worldsStats: WorldsStats | null;
 }
 
 interface UseReportDataResult {
@@ -26,11 +28,24 @@ function decompressData(compressed: CompressedReportData): ReportData {
     } : undefined,
   }));
 
+  // Decompress worlds data
+  // Format: [name, sceneId, title, thumbnail, parcels, hasOptimized]
+  const worlds: WorldWithOptimization[] = (compressed.w || []).map((world) => ({
+    name: world[0],
+    sceneId: world[1],
+    title: world[2],
+    thumbnail: world[3] || undefined,
+    parcels: world[4],
+    hasOptimizedAssets: world[5] === 1,
+  }));
+
   return {
     lands,
     stats: compressed.s,
     sceneColorIndices: compressed.c,
     generatedAt: compressed.g,
+    worlds,
+    worldsStats: compressed.ws || null,
   };
 }
 

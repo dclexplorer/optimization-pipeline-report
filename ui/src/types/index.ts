@@ -45,11 +45,23 @@ export interface Stats {
 // Compressed format from R2: [x, y, sceneId, hasOptimized, reportSuccess?]
 export type CompressedLand = [number, number, string, number, number?];
 
+// Compressed world format: [name, sceneId, title, thumbnail, parcels, hasOptimized]
+export type CompressedWorld = [string, string, string, string, number, number];
+
+export interface WorldsStats {
+  totalWorlds: number;
+  optimizedWorlds: number;
+  notOptimizedWorlds: number;
+  optimizationPercentage: number;
+}
+
 export interface CompressedReportData {
   l: CompressedLand[]; // lands (only occupied)
   s: Stats; // stats
   c: Record<string, number>; // color indices for scenes
   g: number; // generated timestamp
+  w?: CompressedWorld[]; // worlds array
+  ws?: WorldsStats | null; // worlds stats
 }
 
 export interface HistoryEntry {
@@ -68,4 +80,14 @@ export interface HistoryEntry {
 }
 
 export type MapView = 'scenes' | 'optimization' | 'reports';
-export type TabName = 'overview' | 'optimization' | 'history';
+export type TabName = 'overview' | 'optimization' | 'history' | 'worlds';
+
+// World types
+export interface WorldWithOptimization {
+  name: string;
+  sceneId: string;
+  title: string;
+  thumbnail?: string;
+  parcels: number;
+  hasOptimizedAssets: boolean;
+}
