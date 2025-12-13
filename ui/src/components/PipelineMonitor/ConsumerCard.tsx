@@ -58,26 +58,54 @@ function truncateId(id: string): string {
   return `${id.slice(0, 6)}...${id.slice(-4)}`;
 }
 
-async function fetchSceneJson(baseUrl: string, hash: string): Promise<SceneMetadata | null> {
+interface EntityResponse {
+  content?: { file: string; hash: string }[];
+  metadata?: {
+    display?: {
+      title?: string;
+      navmapThumbnail?: string;
+    };
+    scene?: {
+      base?: string;
+      parcels?: string[];
+    };
+  };
+}
+
+async function fetchSceneData(baseUrl: string, hash: string): Promise<SceneMetadata | null> {
   try {
     const response = await fetch(`${baseUrl}/contents/${hash}`);
     if (!response.ok) {
       return null;
     }
 
-    const sceneJson = await response.json();
+    const entity: EntityResponse = await response.json();
 
-    // Check if this looks like a scene.json (has display or scene properties)
-    if (!sceneJson.display && !sceneJson.scene) {
+    // Check if this looks like an entity response with metadata
+    if (!entity.metadata) {
       return null;
     }
 
-    const name = sceneJson.display?.title || 'Unnamed Scene';
-    const positions = sceneJson.scene?.parcels || [];
+    const metadata = entity.metadata;
+    const name = metadata.display?.title || 'Unnamed Scene';
+
+    // Use base parcel for position
+    const baseParcel = metadata.scene?.base;
+    const positions = baseParcel ? [baseParcel] : [];
+
+    // Find thumbnail from content mapping
+    let thumbnail: string | undefined;
+    const navmapThumbnail = metadata.display?.navmapThumbnail;
+    if (navmapThumbnail && entity.content) {
+      const thumbContent = entity.content.find(c => c.file === navmapThumbnail);
+      if (thumbContent) {
+        thumbnail = `${baseUrl}/contents/${thumbContent.hash}`;
+      }
+    }
 
     return {
       name,
-      thumbnail: undefined,
+      thumbnail,
       positions,
       loading: false,
     };
@@ -94,11 +122,11 @@ async function fetchSceneMetadata(sceneId: string): Promise<SceneMetadata> {
   }
 
   // Try Catalyst first (regular scenes)
-  let metadata = await fetchSceneJson(CATALYST_URL, sceneId);
+  let metadata = await fetchSceneData(CATALYST_URL, sceneId);
 
   // If not found, try Worlds server
   if (!metadata) {
-    metadata = await fetchSceneJson(WORLDS_URL, sceneId);
+    metadata = await fetchSceneData(WORLDS_URL, sceneId);
   }
 
   // If still not found, return error
