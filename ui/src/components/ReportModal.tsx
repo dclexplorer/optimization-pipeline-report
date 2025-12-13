@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { URLS } from '../config';
+import { useQueueTrigger } from '../hooks/useQueueTrigger';
 
 interface ReportModalProps {
   sceneId: string | null;
@@ -37,6 +38,13 @@ export function ReportModal({ sceneId, onClose, title }: ReportModalProps) {
   const [content, setContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { state: queueState, triggerQueue } = useQueueTrigger();
+
+  const handleAddToQueue = useCallback(() => {
+    if (sceneId) {
+      triggerQueue(sceneId, true);
+    }
+  }, [sceneId, triggerQueue]);
 
   const reportUrl = useMemo(() => {
     if (!sceneId) return '';
@@ -104,6 +112,21 @@ export function ReportModal({ sceneId, onClose, title }: ReportModalProps) {
           <a href={reportUrl} target="_blank" rel="noopener noreferrer">
             {reportUrl}
           </a>
+        </div>
+        <div className="modal-actions">
+          <button
+            className="add-to-queue-btn"
+            onClick={handleAddToQueue}
+            disabled={queueState.isLoading}
+          >
+            {queueState.isLoading ? 'Adding...' : 'Add to Priority Queue'}
+          </button>
+          {queueState.success && queueState.lastTriggeredId === sceneId && (
+            <span className="queue-success">Added to queue!</span>
+          )}
+          {queueState.error && queueState.lastTriggeredId === sceneId && (
+            <span className="queue-error">{queueState.error}</span>
+          )}
         </div>
         <div className="modal-body">
           {isLoading && <div className="loading">Loading report...</div>}

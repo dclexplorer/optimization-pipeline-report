@@ -49,3 +49,6 @@ export const URLS = {
     return `${CONFIG.VERCEL_APP_URL}/api/monitoring/status`;
   },
 } as const;
+
+// Export API base URL for direct use in components
+export const API_BASE_URL = CONFIG.VERCEL_APP_URL;

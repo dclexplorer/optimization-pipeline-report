@@ -32,8 +32,10 @@ export function PipelineMonitor() {
     );
   }
 
-  // Only show online consumers (idle or processing)
-  const onlineConsumers = data.consumers.filter(c => c.status !== 'offline');
+  // Only show online consumers (idle or processing), sorted by ID for stable ordering
+  const onlineConsumers = data.consumers
+    .filter(c => c.status !== 'offline')
+    .sort((a, b) => a.id.localeCompare(b.id));
 
   return (
     <div className="pipeline-monitor">
