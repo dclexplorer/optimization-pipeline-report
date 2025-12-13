@@ -58,46 +58,19 @@ function truncateId(id: string): string {
   return `${id.slice(0, 6)}...${id.slice(-4)}`;
 }
 
-async function fetchFromServer(
-  sceneId: string,
-  baseUrl: string,
-  isWorldsServer: boolean
-): Promise<SceneMetadata | null> {
+async function fetchFromCatalyst(sceneId: string): Promise<SceneMetadata | null> {
   try {
-    // For Catalyst, we need to get entity info first
-    // For Worlds, we can try to fetch scene.json directly using the entity ID
-    let entity: { pointers?: string[]; content?: { file: string; hash: string }[] } | null = null;
-    let contentBaseUrl = baseUrl;
-
-    if (isWorldsServer) {
-      // For worlds, try to fetch entity info
-      const response = await fetch(`${baseUrl}/entities/active?ids=${sceneId}`);
-      if (!response.ok) {
-        return null;
-      }
-      const entities = await response.json();
-      if (!entities || entities.length === 0) {
-        return null;
-      }
-      entity = entities[0];
-      contentBaseUrl = baseUrl;
-    } else {
-      // For Catalyst
-      const response = await fetch(`${baseUrl}/entities/active?ids=${sceneId}`);
-      if (!response.ok) {
-        return null;
-      }
-      const entities = await response.json();
-      if (!entities || entities.length === 0) {
-        return null;
-      }
-      entity = entities[0];
-    }
-
-    if (!entity) {
+    const response = await fetch(`${CATALYST_URL}/entities/active?ids=${sceneId}`);
+    if (!response.ok) {
       return null;
     }
 
+    const entities = await response.json();
+    if (!entities || entities.length === 0) {
+      return null;
+    }
+
+    const entity = entities[0];
     const positions = entity.pointers || [];
 
     // Find scene.json content hash
@@ -109,19 +82,17 @@ async function fetchFromServer(
     let thumbnail: string | undefined;
 
     if (sceneJsonContent) {
-      // Fetch scene.json
-      const sceneResponse = await fetch(`${contentBaseUrl}/contents/${sceneJsonContent.hash}`);
+      const sceneResponse = await fetch(`${CATALYST_URL}/contents/${sceneJsonContent.hash}`);
       if (sceneResponse.ok) {
         const sceneJson = await sceneResponse.json();
         name = sceneJson.display?.title || 'Unnamed Scene';
 
-        // Find thumbnail
         if (sceneJson.display?.navmapThumbnail) {
           const thumbContent = entity.content?.find(
             (c: { file: string; hash: string }) => c.file === sceneJson.display.navmapThumbnail
           );
           if (thumbContent) {
-            thumbnail = `${contentBaseUrl}/contents/${thumbContent.hash}`;
+            thumbnail = `${CATALYST_URL}/contents/${thumbContent.hash}`;
           }
         }
       }
@@ -138,6 +109,39 @@ async function fetchFromServer(
   }
 }
 
+async function fetchFromWorlds(sceneId: string): Promise<SceneMetadata | null> {
+  try {
+    // For Worlds, the sceneId IS the content hash for scene.json
+    // Fetch scene.json directly
+    const sceneResponse = await fetch(`${WORLDS_URL}/contents/${sceneId}`);
+    if (!sceneResponse.ok) {
+      return null;
+    }
+
+    const sceneJson = await sceneResponse.json();
+
+    // Check if this looks like a scene.json (has display or scene properties)
+    if (!sceneJson.display && !sceneJson.scene) {
+      return null;
+    }
+
+    const name = sceneJson.display?.title || 'Unnamed World';
+    const positions = sceneJson.scene?.parcels || [];
+
+    // For worlds, thumbnail might be in display.navmapThumbnail but we'd need
+    // to know the hash - skip thumbnail for now since we don't have entity content list
+
+    return {
+      name,
+      thumbnail: undefined,
+      positions,
+      loading: false,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchSceneMetadata(sceneId: string): Promise<SceneMetadata> {
   // Check cache first
   const cached = sceneMetadataCache.get(sceneId);
@@ -146,11 +150,11 @@ async function fetchSceneMetadata(sceneId: string): Promise<SceneMetadata> {
   }
 
   // Try Catalyst first (regular scenes)
-  let metadata = await fetchFromServer(sceneId, CATALYST_URL, false);
+  let metadata = await fetchFromCatalyst(sceneId);
 
   // If not found, try Worlds server
   if (!metadata) {
-    metadata = await fetchFromServer(sceneId, WORLDS_URL, true);
+    metadata = await fetchFromWorlds(sceneId);
   }
 
   // If still not found, return error
