@@ -1249,7 +1249,7 @@ export class ReportGenerator {
             modalContent.innerHTML = '<div class="loading">Loading report...</div>';
             
             try {
-                const response = await fetch(\`https://optimized-assets.dclexplorer.com/v1/\${sceneId}-report.json\`);
+                const response = await fetch(\`https://optimized-assets.dclexplorer.com/v2/\${sceneId}-report.json\`);
                 
                 if (response.ok) {
                     const data = await response.json();
