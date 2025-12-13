@@ -1,8 +1,23 @@
+import { useState, useEffect } from 'react';
 import type { Consumer } from '../../types';
 
 interface ConsumerCardProps {
   consumer: Consumer;
 }
+
+interface SceneMetadata {
+  name: string;
+  thumbnail?: string;
+  positions: string[];
+  loading: boolean;
+  error?: string;
+}
+
+const CATALYST_URL = 'https://peer.decentraland.org/content';
+const WORLDS_URL = 'https://worlds-content-server.decentraland.org';
+
+// Cache for scene metadata to avoid refetching
+const sceneMetadataCache = new Map<string, SceneMetadata>();
 
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -39,14 +54,151 @@ function getStatusClass(status: string): string {
 }
 
 function truncateId(id: string): string {
-  if (id.length <= 8) return id;
-  return `${id.slice(0, 4)}...${id.slice(-4)}`;
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 6)}...${id.slice(-4)}`;
+}
+
+async function fetchFromServer(
+  sceneId: string,
+  baseUrl: string,
+  isWorldsServer: boolean
+): Promise<SceneMetadata | null> {
+  try {
+    // For Catalyst, we need to get entity info first
+    // For Worlds, we can try to fetch scene.json directly using the entity ID
+    let entity: { pointers?: string[]; content?: { file: string; hash: string }[] } | null = null;
+    let contentBaseUrl = baseUrl;
+
+    if (isWorldsServer) {
+      // For worlds, try to fetch entity info
+      const response = await fetch(`${baseUrl}/entities/active?ids=${sceneId}`);
+      if (!response.ok) {
+        return null;
+      }
+      const entities = await response.json();
+      if (!entities || entities.length === 0) {
+        return null;
+      }
+      entity = entities[0];
+      contentBaseUrl = baseUrl;
+    } else {
+      // For Catalyst
+      const response = await fetch(`${baseUrl}/entities/active?ids=${sceneId}`);
+      if (!response.ok) {
+        return null;
+      }
+      const entities = await response.json();
+      if (!entities || entities.length === 0) {
+        return null;
+      }
+      entity = entities[0];
+    }
+
+    if (!entity) {
+      return null;
+    }
+
+    const positions = entity.pointers || [];
+
+    // Find scene.json content hash
+    const sceneJsonContent = entity.content?.find(
+      (c: { file: string; hash: string }) => c.file === 'scene.json'
+    );
+
+    let name = 'Unknown Scene';
+    let thumbnail: string | undefined;
+
+    if (sceneJsonContent) {
+      // Fetch scene.json
+      const sceneResponse = await fetch(`${contentBaseUrl}/contents/${sceneJsonContent.hash}`);
+      if (sceneResponse.ok) {
+        const sceneJson = await sceneResponse.json();
+        name = sceneJson.display?.title || 'Unnamed Scene';
+
+        // Find thumbnail
+        if (sceneJson.display?.navmapThumbnail) {
+          const thumbContent = entity.content?.find(
+            (c: { file: string; hash: string }) => c.file === sceneJson.display.navmapThumbnail
+          );
+          if (thumbContent) {
+            thumbnail = `${contentBaseUrl}/contents/${thumbContent.hash}`;
+          }
+        }
+      }
+    }
+
+    return {
+      name,
+      thumbnail,
+      positions,
+      loading: false,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchSceneMetadata(sceneId: string): Promise<SceneMetadata> {
+  // Check cache first
+  const cached = sceneMetadataCache.get(sceneId);
+  if (cached && !cached.loading) {
+    return cached;
+  }
+
+  // Try Catalyst first (regular scenes)
+  let metadata = await fetchFromServer(sceneId, CATALYST_URL, false);
+
+  // If not found, try Worlds server
+  if (!metadata) {
+    metadata = await fetchFromServer(sceneId, WORLDS_URL, true);
+  }
+
+  // If still not found, return error
+  if (!metadata) {
+    const errorMetadata: SceneMetadata = {
+      name: 'Unknown',
+      positions: [],
+      loading: false,
+      error: 'Entity not found',
+    };
+    sceneMetadataCache.set(sceneId, errorMetadata);
+    return errorMetadata;
+  }
+
+  sceneMetadataCache.set(sceneId, metadata);
+  return metadata;
 }
 
 export function ConsumerCard({ consumer }: ConsumerCardProps) {
+  const [sceneMetadata, setSceneMetadata] = useState<SceneMetadata | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const elapsedTime = consumer.startedAt
     ? Date.now() - new Date(consumer.startedAt).getTime()
     : 0;
+
+  useEffect(() => {
+    if (consumer.currentSceneId) {
+      // Check cache first
+      const cached = sceneMetadataCache.get(consumer.currentSceneId);
+      if (cached) {
+        setSceneMetadata(cached);
+      } else {
+        setSceneMetadata({ name: '', positions: [], loading: true });
+        fetchSceneMetadata(consumer.currentSceneId).then(setSceneMetadata);
+      }
+    } else {
+      setSceneMetadata(null);
+    }
+  }, [consumer.currentSceneId]);
+
+  const copySceneId = () => {
+    if (consumer.currentSceneId) {
+      navigator.clipboard.writeText(consumer.currentSceneId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   return (
     <div className={`consumer-card ${getStatusClass(consumer.status)}`}>
@@ -63,11 +215,48 @@ export function ConsumerCard({ consumer }: ConsumerCardProps) {
 
       {consumer.status === 'processing' && consumer.currentSceneId && (
         <div className="consumer-current">
-          <div className="current-scene" title={consumer.currentSceneId}>
-            {consumer.currentSceneId.length > 20
-              ? `${consumer.currentSceneId.slice(0, 17)}...`
-              : consumer.currentSceneId}
+          {/* Scene Info Section */}
+          <div className="scene-info">
+            {sceneMetadata?.thumbnail && (
+              <img
+                src={sceneMetadata.thumbnail}
+                alt={sceneMetadata.name}
+                className="scene-thumbnail"
+              />
+            )}
+            <div className="scene-details">
+              {sceneMetadata?.loading ? (
+                <div className="scene-name loading">Loading...</div>
+              ) : (
+                <>
+                  <div className="scene-name" title={sceneMetadata?.name}>
+                    {sceneMetadata?.name || 'Unknown Scene'}
+                  </div>
+                  {sceneMetadata?.positions && sceneMetadata.positions.length > 0 && (
+                    <div className="scene-position">
+                      {sceneMetadata.positions.length === 1
+                        ? sceneMetadata.positions[0]
+                        : `${sceneMetadata.positions[0]} (+${sceneMetadata.positions.length - 1} more)`
+                      }
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
+
+          {/* Scene ID with copy */}
+          <div className="scene-id-container">
+            <code className="scene-id-full">{consumer.currentSceneId}</code>
+            <button
+              className="copy-btn"
+              onClick={copySceneId}
+              title="Copy scene ID"
+            >
+              {copied ? '✓' : '📋'}
+            </button>
+          </div>
+
           {consumer.currentStep && (
             <div className="current-step">{consumer.currentStep}</div>
           )}

@@ -32,8 +32,8 @@ export function PipelineMonitor() {
     );
   }
 
+  // Only show online consumers (idle or processing)
   const onlineConsumers = data.consumers.filter(c => c.status !== 'offline');
-  const offlineConsumers = data.consumers.filter(c => c.status === 'offline');
 
   return (
     <div className="pipeline-monitor">
@@ -59,17 +59,6 @@ export function PipelineMonitor() {
           </div>
         )}
       </div>
-
-      {offlineConsumers.length > 0 && (
-        <div className="consumers-section offline">
-          <h3>Offline Consumers ({offlineConsumers.length})</h3>
-          <div className="consumers-grid">
-            {offlineConsumers.map(consumer => (
-              <ConsumerCard key={consumer.id} consumer={consumer} />
-            ))}
-          </div>
-        </div>
-      )}
 
       <ProcessingHistory history={data.recentHistory} />
     </div>

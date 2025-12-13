@@ -1033,12 +1033,78 @@ canvas {
   margin-bottom: 15px;
 }
 
-.current-scene {
-  font-family: monospace;
+/* Scene Info Section */
+.scene-info {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.scene-thumbnail {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #e9ecef;
+}
+
+.scene-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.scene-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scene-name.loading {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.scene-position {
   font-size: 12px;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.scene-id-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  background: #e9ecef;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.scene-id-full {
+  font-family: monospace;
+  font-size: 11px;
   color: #333;
   word-break: break-all;
-  margin-bottom: 5px;
+  flex: 1;
+}
+
+.copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 14px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.copy-btn:hover {
+  opacity: 1;
 }
 
 .current-step {
