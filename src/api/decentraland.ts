@@ -1,9 +1,9 @@
 import axios from 'axios';
 import { Scene, OptimizationReport } from '../types';
 import { S3OptimizationChecker } from './s3-client';
+import { PATHS } from '../config';
 
 const API_URL = 'https://peer.decentraland.org/content/entities/active';
-const OPTIMIZATION_URL = 'https://optimized-assets.dclexplorer.com/v2';
 const BATCH_SIZE = process.env.CI ? 10000 : 50000; // Smaller batches in CI to avoid 500 errors
 const MIN_COORD = -175;
 const MAX_COORD = 175;
@@ -55,7 +55,7 @@ export class DecentralandAPI {
 
   private async checkOptimizedAsset(sceneId: string): Promise<boolean> {
     try {
-      const url = `${OPTIMIZATION_URL}/${sceneId}-mobile.zip`;
+      const url = PATHS.getOptimizedAssetUrl(sceneId);
       const response = await axios.head(url, {
         timeout: 10000, // Increased timeout
         validateStatus: (status) => status < 500
@@ -68,9 +68,9 @@ export class DecentralandAPI {
 
   private async fetchOptimizationReport(sceneId: string, retryCount: number = 0): Promise<OptimizationReport | null> {
     const MAX_RETRIES = 2;
-    
+
     try {
-      const url = `${OPTIMIZATION_URL}/${sceneId}-report.json`;
+      const url = PATHS.getReportUrl(sceneId);
       const response = await axios.get(url, {
         timeout: 10000, // Increased timeout
         validateStatus: (status) => status < 500

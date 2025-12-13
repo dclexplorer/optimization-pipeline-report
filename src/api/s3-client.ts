@@ -1,5 +1,6 @@
 import { S3Client, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3';
 import * as dotenv from 'dotenv';
+import { CONFIG, PATHS } from '../config';
 
 dotenv.config();
 
@@ -18,7 +19,7 @@ export class S3OptimizationChecker {
         secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
       },
     });
-    this.bucket = process.env.S3_BUCKET || 'optimized-assets';
+    this.bucket = CONFIG.S3_BUCKET;
   }
 
   public async initialize(): Promise<void> {
@@ -31,21 +32,24 @@ export class S3OptimizationChecker {
       let continuationToken: string | undefined;
       let totalObjects = 0;
       
+      const prefix = PATHS.s3Prefix;
+      const prefixRegex = new RegExp(`^${prefix}(.+?)-mobile\\.zip$`);
+
       do {
         const command = new ListObjectsV2Command({
           Bucket: this.bucket,
-          Prefix: 'v1/',
+          Prefix: prefix,
           ContinuationToken: continuationToken,
           MaxKeys: 1000,
         });
-        
+
         const response = await this.s3Client.send(command);
-        
+
         if (response.Contents) {
           for (const object of response.Contents) {
             if (object.Key && object.Key.endsWith('-mobile.zip')) {
-              // Extract scene ID from key: v1/{sceneId}-mobile.zip
-              const match = object.Key.match(/v1\/(.+?)-mobile\.zip$/);
+              // Extract scene ID from key: {version}/{sceneId}-mobile.zip
+              const match = object.Key.match(prefixRegex);
               if (match) {
                 this.optimizedAssets.add(match[1]);
               }
@@ -78,9 +82,9 @@ export class S3OptimizationChecker {
     try {
       const command = new HeadObjectCommand({
         Bucket: this.bucket,
-        Key: `v1/${sceneId}-mobile.zip`,
+        Key: PATHS.getOptimizedAssetKey(sceneId),
       });
-      
+
       await this.s3Client.send(command);
       return true;
     } catch (error) {

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { CompressedReportData, LandData, Stats } from '../types';
-
-const REPORT_URL = 'https://reports.dclexplorer.com/optimization-pipeline/report.json';
+import { URLS } from '../config';
 
 interface ReportData {
   lands: LandData[];
@@ -46,7 +45,7 @@ export function useReportData(): UseReportDataResult {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetch(REPORT_URL);
+        const response = await fetch(URLS.reportData);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }

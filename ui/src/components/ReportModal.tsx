@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { URLS } from '../config';
 
 interface ReportModalProps {
   sceneId: string | null;
   onClose: () => void;
 }
-
-const REPORT_BASE_URL = 'https://optimized-assets.dclexplorer.com/v2';
 
 function syntaxHighlight(json: string): string {
   const escaped = json
@@ -40,7 +39,7 @@ export function ReportModal({ sceneId, onClose }: ReportModalProps) {
 
   const reportUrl = useMemo(() => {
     if (!sceneId) return '';
-    return `${REPORT_BASE_URL}/${sceneId}-report.json`;
+    return URLS.getSceneReport(sceneId);
   }, [sceneId]);
 
   useEffect(() => {
