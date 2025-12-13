@@ -1,5 +1,8 @@
 {
-  "outputDirectory": "public",
+  "buildCommand": "npm run build --workspace=ui",
+  "outputDirectory": "ui/dist",
+  "installCommand": "npm install",
+  "framework": "vite",
   "functions": {
     "api/update-history.js": {
       "maxDuration": 10
@@ -7,5 +10,9 @@
     "api/get-history.js": {
       "maxDuration": 10
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
