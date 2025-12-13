@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { HistoryEntry } from '../types';
+import { CONFIG } from '../config';
 
 interface UseHistoryDataResult {
   data: HistoryEntry[];
@@ -18,7 +19,8 @@ export function useHistoryData(): UseHistoryDataResult {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetch('/api/get-history');
+        // Use the full Vercel URL since the API is a serverless function
+        const response = await fetch(`${CONFIG.VERCEL_APP_URL}/api/get-history`);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }

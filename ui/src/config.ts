@@ -10,6 +10,9 @@ export const CONFIG = {
 
   // Report data path
   REPORT_DATA_PATH: 'optimization-pipeline/report.json',
+
+  // Vercel app URL (for API routes)
+  VERCEL_APP_URL: 'https://optimization-pipeline-report.vercel.app',
 } as const;
 
 // Derived URLs
