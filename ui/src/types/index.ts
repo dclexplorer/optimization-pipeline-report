@@ -80,7 +80,17 @@ export interface HistoryEntry {
 }
 
 export type MapView = 'optimization' | 'scenes';
-export type TabName = 'overview' | 'worlds' | 'pipeline' | 'history';
+export type TabName = 'overview' | 'worlds' | 'pipeline' | 'ranking' | 'history';
+
+export interface RankingEntry {
+  rank: number;
+  consumerId: string;
+  sceneId: string;
+  processMethod: string;
+  status: string;
+  durationMs: number;
+  completedAt: string;
+}
 
 // World types
 export interface WorldWithOptimization {

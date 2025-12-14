@@ -1390,6 +1390,55 @@ canvas {
   background: #764ba2;
 }
 
+/* Ranking View Styles */
+.ranking-view {
+  padding: 20px;
+}
+
+.ranking-view h3 {
+  font-size: 1.3em;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.ranking-loading,
+.ranking-error,
+.no-ranking {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.ranking-error {
+  color: #dc3545;
+}
+
+.history-card.ranking {
+  border-left-color: #f59e0b;
+}
+
+.ranking-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 24px;
+  padding: 0 8px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 4px;
+}
+
+.ranking-duration {
+  font-size: 13px;
+  font-weight: bold;
+  color: #f59e0b;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;

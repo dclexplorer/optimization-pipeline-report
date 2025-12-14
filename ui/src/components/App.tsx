@@ -13,15 +13,17 @@ import { ReportModal } from './ReportModal';
 import { HistoryView } from './HistoryView';
 import { WorldsList } from './WorldsList';
 import { PipelineMonitor } from './PipelineMonitor';
+import { RankingView } from './RankingView';
 
 const TAB_HASH_MAP: Record<string, TabName> = {
   '#overview': 'overview',
   '#worlds': 'worlds',
   '#pipeline': 'pipeline',
+  '#ranking': 'ranking',
   '#history': 'history',
 };
 
-const VALID_TABS: TabName[] = ['overview', 'worlds', 'pipeline', 'history'];
+const VALID_TABS: TabName[] = ['overview', 'worlds', 'pipeline', 'ranking', 'history'];
 
 function getTabFromHash(): TabName {
   const hash = window.location.hash;
@@ -124,6 +126,12 @@ export default function App() {
       {activeTab === 'pipeline' && (
         <div className="tab-content active">
           <PipelineMonitor />
+        </div>
+      )}
+
+      {activeTab === 'ranking' && (
+        <div className="tab-content active">
+          <RankingView />
         </div>
       )}
 
