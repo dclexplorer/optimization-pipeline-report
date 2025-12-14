@@ -80,7 +80,7 @@ export interface HistoryEntry {
 }
 
 export type MapView = 'optimization' | 'scenes';
-export type TabName = 'overview' | 'optimization' | 'worlds' | 'pipeline' | 'history';
+export type TabName = 'overview' | 'worlds' | 'pipeline' | 'history';
 
 // World types
 export interface WorldWithOptimization {

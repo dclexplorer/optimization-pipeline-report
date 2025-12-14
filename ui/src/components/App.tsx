@@ -16,13 +16,12 @@ import { PipelineMonitor } from './PipelineMonitor';
 
 const TAB_HASH_MAP: Record<string, TabName> = {
   '#overview': 'overview',
-  '#optimization': 'optimization',
   '#worlds': 'worlds',
   '#pipeline': 'pipeline',
   '#history': 'history',
 };
 
-const VALID_TABS: TabName[] = ['overview', 'optimization', 'worlds', 'pipeline', 'history'];
+const VALID_TABS: TabName[] = ['overview', 'worlds', 'pipeline', 'history'];
 
 function getTabFromHash(): TabName {
   const hash = window.location.hash;
@@ -33,7 +32,6 @@ export default function App() {
   const { data, isLoading, error } = useReportData();
   const [activeTab, setActiveTab] = useState<TabName>(getTabFromHash);
   const [mapView, setMapView] = useState<MapView>('optimization');
-  const [optimizationMapView, setOptimizationMapView] = useState<MapView>('optimization');
   const [hoveredLand, setHoveredLand] = useState<{ land: LandData; x: number; y: number } | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
 
@@ -99,7 +97,8 @@ export default function App() {
 
       {activeTab === 'overview' && (
         <div className="tab-content active">
-          <StatsGrid stats={data.stats} variant="overview" />
+          <ProgressBar percentage={data.stats.optimizationPercentage} />
+          <StatsGrid stats={data.stats} />
 
           <div className="map-section">
             <h2 className="map-title">Interactive World Map</h2>
@@ -112,29 +111,6 @@ export default function App() {
               onLandHover={handleLandHover}
             />
             <Legend view={mapView} />
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'optimization' && (
-        <div className="tab-content active">
-          <div className="optimization-stats">
-            <h2 className="map-title">Asset Optimization Status</h2>
-            <ProgressBar percentage={data.stats.optimizationPercentage} />
-            <StatsGrid stats={data.stats} variant="optimization" />
-
-            <div className="map-section">
-              <h3 className="map-title">Optimization Map</h3>
-              <ViewToggle currentView={optimizationMapView} onViewChange={setOptimizationMapView} />
-              <WorldMap
-                lands={data.lands}
-                sceneColorIndices={data.sceneColorIndices}
-                view={optimizationMapView}
-                onLandClick={handleLandClick}
-                onLandHover={handleLandHover}
-              />
-              <Legend view={optimizationMapView} />
-            </div>
           </div>
         </div>
       )}
