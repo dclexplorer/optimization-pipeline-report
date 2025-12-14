@@ -25,9 +25,21 @@ const TIME_RANGE_TICKS: Record<TimeRange, { count: number; intervalHours: number
   '1h': { count: 6, intervalHours: 10 / 60 }, // 10 minutes
 };
 
+interface TooltipData {
+  // SVG coordinates for the highlight circle
+  svgX: number;
+  svgY: number;
+  // Pixel coordinates relative to container for the tooltip div
+  pixelX: number;
+  pixelY: number;
+  depth: number;
+  time: string;
+}
+
 export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: QueueDepthChartProps) {
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; depth: number; time: string } | null>(null);
+  const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const chartData = useMemo(() => {
     const now = new Date().getTime();
@@ -97,12 +109,15 @@ export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: Queue
   }, [history, timeRange]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!chartData || !svgRef.current) return;
+    if (!chartData || !svgRef.current || !containerRef.current) return;
 
     const svg = svgRef.current;
-    const rect = svg.getBoundingClientRect();
-    const scaleX = chartData.width / rect.width;
-    const mouseX = (e.clientX - rect.left) * scaleX;
+    const svgRect = svg.getBoundingClientRect();
+    const containerRect = containerRef.current.getBoundingClientRect();
+
+    // Calculate mouse position in SVG coordinate space
+    const scaleX = chartData.width / svgRect.width;
+    const mouseX = (e.clientX - svgRect.left) * scaleX;
 
     // Find the closest point
     let closestPoint = chartData.points[0];
@@ -122,9 +137,15 @@ export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: Queue
       mouseX <= chartData.padding.left + chartData.chartWidth &&
       closestDist < 50
     ) {
+      // Convert SVG coordinates to pixel position relative to container
+      const pointScreenX = svgRect.left + (closestPoint.x / chartData.width) * svgRect.width;
+      const pointScreenY = svgRect.top + (closestPoint.y / chartData.height) * svgRect.height;
+
       setTooltip({
-        x: closestPoint.x,
-        y: closestPoint.y,
+        svgX: closestPoint.x,
+        svgY: closestPoint.y,
+        pixelX: pointScreenX - containerRect.left,
+        pixelY: pointScreenY - containerRect.top,
         depth: closestPoint.depth,
         time: closestPoint.time
       });
@@ -162,7 +183,7 @@ export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: Queue
   }
 
   return (
-    <div className="queue-chart">
+    <div className="queue-chart" ref={containerRef}>
       <div className="queue-chart-header">
         <h4>Queue Depth</h4>
         <div className="time-range-selector">
@@ -226,8 +247,8 @@ export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: Queue
         {/* Tooltip highlight point */}
         {tooltip && (
           <circle
-            cx={tooltip.x}
-            cy={tooltip.y}
+            cx={tooltip.svgX}
+            cy={tooltip.svgY}
             r="6"
             fill="#667eea"
             stroke="#fff"
@@ -311,8 +332,8 @@ export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: Queue
         <div
           className="chart-tooltip"
           style={{
-            left: `${(tooltip.x / chartData.width) * 100}%`,
-            top: `${(tooltip.y / chartData.height) * 100}%`
+            left: `${tooltip.pixelX}px`,
+            top: `${tooltip.pixelY}px`
           }}
         >
           <div className="tooltip-value">{tooltip.depth.toLocaleString()} items</div>
