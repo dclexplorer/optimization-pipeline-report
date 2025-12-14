@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import type { QueueMetrics, QueueHistoryPoint } from '../../types';
-import { QueueDepthChart } from './QueueDepthChart';
+import { QueueDepthChart, type TimeRange } from './QueueDepthChart';
 
 interface QueueStatusProps {
   queue: QueueMetrics | null;
@@ -21,6 +22,8 @@ function formatTimeAgo(timestamp: string): string {
 }
 
 export function QueueStatus({ queue, queueHistory, processedLastHour }: QueueStatusProps) {
+  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
+
   if (!queue) {
     return (
       <div className="queue-status">
@@ -49,7 +52,11 @@ export function QueueStatus({ queue, queueHistory, processedLastHour }: QueueSta
           <div className="stat-label">Last Update</div>
         </div>
       </div>
-      <QueueDepthChart history={queueHistory} />
+      <QueueDepthChart
+        history={queueHistory}
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
+      />
     </div>
   );
 }

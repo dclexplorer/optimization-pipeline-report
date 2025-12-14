@@ -1,13 +1,43 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback, useRef } from 'react';
 import type { QueueHistoryPoint } from '../../types';
+
+export type TimeRange = '24h' | '12h' | '6h' | '3h' | '1h';
 
 interface QueueDepthChartProps {
   history: QueueHistoryPoint[];
+  timeRange: TimeRange;
+  onTimeRangeChange: (range: TimeRange) => void;
 }
 
-export function QueueDepthChart({ history }: QueueDepthChartProps) {
+const TIME_RANGE_MS: Record<TimeRange, number> = {
+  '24h': 24 * 60 * 60 * 1000,
+  '12h': 12 * 60 * 60 * 1000,
+  '6h': 6 * 60 * 60 * 1000,
+  '3h': 3 * 60 * 60 * 1000,
+  '1h': 1 * 60 * 60 * 1000,
+};
+
+const TIME_RANGE_TICKS: Record<TimeRange, { count: number; intervalHours: number }> = {
+  '24h': { count: 6, intervalHours: 4 },
+  '12h': { count: 6, intervalHours: 2 },
+  '6h': { count: 6, intervalHours: 1 },
+  '3h': { count: 6, intervalHours: 0.5 },
+  '1h': { count: 6, intervalHours: 10 / 60 }, // 10 minutes
+};
+
+export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: QueueDepthChartProps) {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; depth: number; time: string } | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
   const chartData = useMemo(() => {
-    if (history.length === 0) return null;
+    const now = new Date().getTime();
+    const rangeMs = TIME_RANGE_MS[timeRange];
+    const startTime = now - rangeMs;
+
+    // Filter history to selected time range
+    const filteredHistory = history.filter(h => new Date(h.timestamp).getTime() >= startTime);
+
+    if (filteredHistory.length === 0) return null;
 
     const width = 800;
     const height = 200;
@@ -15,20 +45,20 @@ export function QueueDepthChart({ history }: QueueDepthChartProps) {
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
 
-    const maxDepth = Math.max(...history.map(h => h.queueDepth), 1);
-    const minTime = new Date(history[0].timestamp).getTime();
-    const maxTime = new Date(history[history.length - 1].timestamp).getTime();
-    const timeRange = maxTime - minTime || 1;
+    const maxDepth = Math.max(...filteredHistory.map(h => h.queueDepth), 1);
 
-    // Generate path for the area chart
-    const points = history.map((point) => {
-      const x = padding.left + ((new Date(point.timestamp).getTime() - minTime) / timeRange) * chartWidth;
+    // Generate path for the area chart - use fixed time range from startTime to now
+    const points = filteredHistory.map((point) => {
+      const pointTime = new Date(point.timestamp).getTime();
+      const x = padding.left + ((pointTime - startTime) / rangeMs) * chartWidth;
       const y = padding.top + chartHeight - (point.queueDepth / maxDepth) * chartHeight;
       return { x, y, depth: point.queueDepth, time: point.timestamp };
     });
 
     const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-    const areaPath = `${linePath} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${points[0].x} ${padding.top + chartHeight} Z`;
+    const areaPath = points.length > 0
+      ? `${linePath} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${points[0].x} ${padding.top + chartHeight} Z`
+      : '';
 
     // Generate Y-axis ticks
     const yTicks = [];
@@ -39,34 +69,120 @@ export function QueueDepthChart({ history }: QueueDepthChartProps) {
       yTicks.push({ value, y });
     }
 
-    // Generate X-axis ticks (every 4 hours)
+    // Generate X-axis ticks based on selected time range
     const xTicks = [];
-    const now = new Date();
-    for (let i = 0; i <= 6; i++) {
-      const time = new Date(now.getTime() - (24 - i * 4) * 60 * 60 * 1000);
-      const x = padding.left + (i / 6) * chartWidth;
-      const label = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const { count } = TIME_RANGE_TICKS[timeRange];
+    for (let i = 0; i <= count; i++) {
+      const tickTime = new Date(startTime + (i / count) * rangeMs);
+      const x = padding.left + (i / count) * chartWidth;
+      const label = tickTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       xTicks.push({ x, label });
     }
 
-    return { points, linePath, areaPath, yTicks, xTicks, width, height, padding, chartWidth, chartHeight, maxDepth };
-  }, [history]);
+    return {
+      points,
+      linePath,
+      areaPath,
+      yTicks,
+      xTicks,
+      width,
+      height,
+      padding,
+      chartWidth,
+      chartHeight,
+      maxDepth,
+      startTime,
+      rangeMs
+    };
+  }, [history, timeRange]);
 
-  if (!chartData || history.length < 2) {
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!chartData || !svgRef.current) return;
+
+    const svg = svgRef.current;
+    const rect = svg.getBoundingClientRect();
+    const scaleX = chartData.width / rect.width;
+    const mouseX = (e.clientX - rect.left) * scaleX;
+
+    // Find the closest point
+    let closestPoint = chartData.points[0];
+    let closestDist = Infinity;
+
+    for (const point of chartData.points) {
+      const dist = Math.abs(point.x - mouseX);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestPoint = point;
+      }
+    }
+
+    // Only show tooltip if mouse is within chart area and close enough to a point
+    if (
+      mouseX >= chartData.padding.left &&
+      mouseX <= chartData.padding.left + chartData.chartWidth &&
+      closestDist < 50
+    ) {
+      setTooltip({
+        x: closestPoint.x,
+        y: closestPoint.y,
+        depth: closestPoint.depth,
+        time: closestPoint.time
+      });
+    } else {
+      setTooltip(null);
+    }
+  }, [chartData]);
+
+  const handleMouseLeave = useCallback(() => {
+    setTooltip(null);
+  }, []);
+
+  const timeRangeOptions: TimeRange[] = ['24h', '12h', '6h', '3h', '1h'];
+
+  if (!chartData || chartData.points.length < 2) {
     return (
       <div className="queue-chart">
-        <h4>Queue Depth (Last 24h)</h4>
-        <div className="chart-empty">Not enough data to display chart</div>
+        <div className="queue-chart-header">
+          <h4>Queue Depth</h4>
+          <div className="time-range-selector">
+            {timeRangeOptions.map(range => (
+              <button
+                key={range}
+                className={timeRange === range ? 'active' : ''}
+                onClick={() => onTimeRangeChange(range)}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="chart-empty">Not enough data to display chart for selected time range</div>
       </div>
     );
   }
 
   return (
     <div className="queue-chart">
-      <h4>Queue Depth (Last 24h)</h4>
+      <div className="queue-chart-header">
+        <h4>Queue Depth</h4>
+        <div className="time-range-selector">
+          {timeRangeOptions.map(range => (
+            <button
+              key={range}
+              className={timeRange === range ? 'active' : ''}
+              onClick={() => onTimeRangeChange(range)}
+            >
+              {range}
+            </button>
+          ))}
+        </div>
+      </div>
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${chartData.width} ${chartData.height}`}
         className="queue-depth-svg"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
       >
         {/* Grid lines */}
         {chartData.yTicks.map((tick, i) => (
@@ -104,10 +220,20 @@ export function QueueDepthChart({ history }: QueueDepthChartProps) {
             cy={point.y}
             r="3"
             fill="#667eea"
-          >
-            <title>{`${point.depth} items at ${new Date(point.time).toLocaleString()}`}</title>
-          </circle>
+          />
         ))}
+
+        {/* Tooltip highlight point */}
+        {tooltip && (
+          <circle
+            cx={tooltip.x}
+            cy={tooltip.y}
+            r="6"
+            fill="#667eea"
+            stroke="#fff"
+            strokeWidth="2"
+          />
+        )}
 
         {/* Y-axis */}
         <line
@@ -179,6 +305,20 @@ export function QueueDepthChart({ history }: QueueDepthChartProps) {
           </linearGradient>
         </defs>
       </svg>
+
+      {/* Tooltip overlay */}
+      {tooltip && (
+        <div
+          className="chart-tooltip"
+          style={{
+            left: `${(tooltip.x / chartData.width) * 100}%`,
+            top: `${(tooltip.y / chartData.height) * 100}%`
+          }}
+        >
+          <div className="tooltip-value">{tooltip.depth.toLocaleString()} items</div>
+          <div className="tooltip-time">{new Date(tooltip.time).toLocaleString()}</div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1532,6 +1532,47 @@ canvas {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
+.queue-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.queue-chart-header h4 {
+  font-size: 1.1em;
+  color: #333;
+  margin: 0;
+}
+
+.time-range-selector {
+  display: flex;
+  gap: 4px;
+}
+
+.time-range-selector button {
+  padding: 4px 10px;
+  border: 1px solid #dee2e6;
+  background: white;
+  color: #6c757d;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 4px;
+}
+
+.time-range-selector button:hover {
+  background: #f8f9fa;
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.time-range-selector button.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+}
+
 .queue-chart h4 {
   font-size: 1.1em;
   color: #333;
@@ -1550,4 +1591,44 @@ canvas {
   color: #6c757d;
   background: #f8f9fa;
   border-radius: 8px;
+}
+
+.queue-chart {
+  position: relative;
+}
+
+.chart-tooltip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  margin-top: -15px;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85em;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.chart-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.85);
+}
+
+.chart-tooltip .tooltip-value {
+  font-weight: bold;
+  font-size: 1.1em;
+}
+
+.chart-tooltip .tooltip-time {
+  opacity: 0.8;
+  font-size: 0.9em;
+  margin-top: 2px;
 }
