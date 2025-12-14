@@ -89,7 +89,9 @@ export default async function handler(req, res) {
           last_heartbeat,
           jobs_completed,
           jobs_failed,
-          avg_processing_time_ms
+          avg_processing_time_ms,
+          is_priority,
+          last_job_status
         FROM pipeline_consumers
         ORDER BY last_heartbeat DESC
       `;
@@ -119,7 +121,9 @@ export default async function handler(req, res) {
             lastHeartbeat: row.last_heartbeat,
             jobsCompleted: row.jobs_completed,
             jobsFailed: row.jobs_failed,
-            avgProcessingTimeMs: row.avg_processing_time_ms
+            avgProcessingTimeMs: row.avg_processing_time_ms,
+            isPriority: row.is_priority || false,
+            lastJobStatus: row.last_job_status
           };
         });
 

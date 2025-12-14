@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { WorldWithOptimization, WorldsStats } from '../types';
-import { URLS } from '../config';
 import { ReportModal } from './ReportModal';
 import { useQueueTrigger } from '../hooks/useQueueTrigger';
 
@@ -170,16 +169,6 @@ function WorldCard({ world, onViewReport, onAddToQueue, queueState }: WorldCardP
           >
             {isThisCardLoading ? 'Adding...' : 'Priority Queue'}
           </button>
-          {world.hasOptimizedAssets && (
-            <a
-              href={URLS.getOptimizedAsset(world.sceneId)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="download-btn"
-            >
-              Download
-            </a>
-          )}
         </div>
         {showSuccess && (
           <div className="queue-feedback success">Added to queue!</div>

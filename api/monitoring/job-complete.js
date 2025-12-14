@@ -31,7 +31,8 @@ export default async function handler(req, res) {
     startedAt,
     completedAt,
     durationMs,
-    errorMessage
+    errorMessage,
+    isPriority
   } = req.body;
 
   const expectedSecret = process.env.MONITORING_SECRET;
@@ -66,7 +67,8 @@ export default async function handler(req, res) {
         completed_at TIMESTAMP NOT NULL,
         duration_ms INTEGER NOT NULL,
         error_message TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
+        created_at TIMESTAMP DEFAULT NOW(),
+        is_priority BOOLEAN DEFAULT FALSE
       )
     `;
 
@@ -74,6 +76,7 @@ export default async function handler(req, res) {
     try {
       await sql`CREATE INDEX IF NOT EXISTS idx_history_consumer ON pipeline_process_history(consumer_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_history_created ON pipeline_process_history(created_at DESC)`;
+      await sql`ALTER TABLE pipeline_process_history ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE`;
     } catch (e) {
       // Ignore index creation errors
     }
@@ -88,7 +91,8 @@ export default async function handler(req, res) {
         started_at,
         completed_at,
         duration_ms,
-        error_message
+        error_message,
+        is_priority
       ) VALUES (
         ${consumerId},
         ${sceneId},
@@ -97,7 +101,8 @@ export default async function handler(req, res) {
         ${new Date(startedAt)},
         ${new Date(completedAt)},
         ${durationMs},
-        ${errorMessage || null}
+        ${errorMessage || null},
+        ${isPriority || false}
       )
     `;
 
@@ -127,7 +132,9 @@ export default async function handler(req, res) {
           current_scene_id = NULL,
           current_step = NULL,
           progress_percent = 0,
-          started_at = NULL
+          started_at = NULL,
+          is_priority = FALSE,
+          last_job_status = ${status}
         WHERE id = ${consumerId}
       `;
     }

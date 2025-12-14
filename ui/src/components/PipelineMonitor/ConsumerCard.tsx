@@ -182,9 +182,16 @@ export function ConsumerCard({ consumer }: ConsumerCardProps) {
         <span className="consumer-id" title={consumer.id}>
           {truncateId(consumer.id)}
         </span>
-        <span className={`consumer-status ${getStatusClass(consumer.status)}`}>
-          {consumer.status}
-        </span>
+        <div className="consumer-badges">
+          {consumer.isPriority && consumer.status === 'processing' && (
+            <span className="priority-badge" title="Processing priority job">
+              ⚡ PRIORITY
+            </span>
+          )}
+          <span className={`consumer-status ${getStatusClass(consumer.status)}`}>
+            {consumer.status}
+          </span>
+        </div>
       </div>
 
       <div className="consumer-method">{consumer.processMethod}</div>
@@ -276,6 +283,11 @@ export function ConsumerCard({ consumer }: ConsumerCardProps) {
         <span className="last-heartbeat">
           Last seen: {formatTimeAgo(consumer.lastHeartbeat)}
         </span>
+        {consumer.lastJobStatus && (
+          <span className={`last-job-status ${consumer.lastJobStatus === 'success' ? 'success' : 'failed'}`}>
+            Last: {consumer.lastJobStatus === 'success' ? '✓' : '✗'}
+          </span>
+        )}
       </div>
     </div>
   );

@@ -117,6 +117,8 @@ export interface Consumer {
   jobsCompleted: number;
   jobsFailed: number;
   avgProcessingTimeMs: number;
+  isPriority?: boolean;
+  lastJobStatus?: 'success' | 'failed';
 }
 
 export interface ProcessingHistoryEntry {

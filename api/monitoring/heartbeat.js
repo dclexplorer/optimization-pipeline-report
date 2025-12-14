@@ -30,7 +30,8 @@ export default async function handler(req, res) {
     currentSceneId,
     currentStep,
     progressPercent,
-    startedAt
+    startedAt,
+    isPriority
   } = req.body;
 
   const expectedSecret = process.env.MONITORING_SECRET;
@@ -67,9 +68,19 @@ export default async function handler(req, res) {
         created_at TIMESTAMP DEFAULT NOW(),
         jobs_completed INTEGER DEFAULT 0,
         jobs_failed INTEGER DEFAULT 0,
-        avg_processing_time_ms INTEGER DEFAULT 0
+        avg_processing_time_ms INTEGER DEFAULT 0,
+        is_priority BOOLEAN DEFAULT FALSE,
+        last_job_status VARCHAR(20)
       )
     `;
+
+    // Try to add is_priority and last_job_status columns if they don't exist
+    try {
+      await sql`ALTER TABLE pipeline_consumers ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE`;
+      await sql`ALTER TABLE pipeline_consumers ADD COLUMN IF NOT EXISTS last_job_status VARCHAR(20)`;
+    } catch (e) {
+      // Columns might already exist
+    }
 
     // Upsert consumer record
     await sql`
@@ -81,7 +92,8 @@ export default async function handler(req, res) {
         current_step,
         progress_percent,
         started_at,
-        last_heartbeat
+        last_heartbeat,
+        is_priority
       ) VALUES (
         ${consumerId},
         ${processMethod},
@@ -90,7 +102,8 @@ export default async function handler(req, res) {
         ${currentStep || null},
         ${progressPercent || 0},
         ${startedAt ? new Date(startedAt) : null},
-        NOW()
+        NOW(),
+        ${isPriority || false}
       )
       ON CONFLICT (id) DO UPDATE SET
         process_method = ${processMethod},
@@ -99,7 +112,8 @@ export default async function handler(req, res) {
         current_step = ${currentStep || null},
         progress_percent = ${progressPercent || 0},
         started_at = ${startedAt ? new Date(startedAt) : null},
-        last_heartbeat = NOW()
+        last_heartbeat = NOW(),
+        is_priority = ${isPriority || false}
     `;
 
     res.status(200).json({ success: true });
