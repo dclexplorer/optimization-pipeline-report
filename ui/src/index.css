@@ -973,22 +973,25 @@ canvas {
 .consumer-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  gap: 8px;
 }
 
 .consumer-id {
   font-family: monospace;
   font-size: 12px;
   color: #6c757d;
+  flex-shrink: 0;
 }
 
 .consumer-status {
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: bold;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .consumer-status.status-processing {
@@ -1062,6 +1065,12 @@ canvas {
   font-weight: 500;
 }
 
+.scene-world-name {
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 500;
+}
+
 .scene-id-container {
   display: flex;
   align-items: center;
@@ -1130,32 +1139,41 @@ canvas {
   color: #6c757d;
 }
 
-.consumer-stats {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 10px;
-  padding-top: 10px;
+.consumer-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-top: 12px;
   border-top: 1px solid #e9ecef;
 }
 
-.consumer-stats .stat {
-  font-size: 12px;
+.consumer-stats-grid .stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
-.consumer-stats .stat-label {
+.consumer-stats-grid .stat-label {
+  font-size: 10px;
   color: #6c757d;
-  margin-right: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
 }
 
-.consumer-stats .stat-value {
-  font-weight: 600;
+.consumer-stats-grid .stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
 }
 
-.consumer-stats .stat-value.success {
+.consumer-stats-grid .stat-value.success {
   color: #10b981;
 }
 
-.consumer-stats .stat-value.failed {
+.consumer-stats-grid .stat-value.failed {
   color: #ef4444;
 }
 
@@ -1170,18 +1188,21 @@ canvas {
 .consumer-badges {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .priority-badge {
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 20px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: bold;
   text-transform: uppercase;
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: white;
   animation: priority-pulse 2s ease-in-out infinite;
+  white-space: nowrap;
 }
 
 @keyframes priority-pulse {

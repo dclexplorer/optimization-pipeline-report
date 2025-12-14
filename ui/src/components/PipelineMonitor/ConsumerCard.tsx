@@ -11,6 +11,8 @@ interface SceneMetadata {
   positions: string[];
   loading: boolean;
   error?: string;
+  isWorld?: boolean;
+  worldName?: string;
 }
 
 const CATALYST_URL = 'https://peer.decentraland.org/content';
@@ -69,10 +71,13 @@ interface EntityResponse {
       base?: string;
       parcels?: string[];
     };
+    worldConfiguration?: {
+      name?: string;
+    };
   };
 }
 
-async function fetchSceneData(baseUrl: string, hash: string): Promise<SceneMetadata | null> {
+async function fetchSceneData(baseUrl: string, hash: string, isWorld: boolean = false): Promise<SceneMetadata | null> {
   try {
     const response = await fetch(`${baseUrl}/contents/${hash}`);
     if (!response.ok) {
@@ -93,6 +98,9 @@ async function fetchSceneData(baseUrl: string, hash: string): Promise<SceneMetad
     const baseParcel = metadata.scene?.base;
     const positions = baseParcel ? [baseParcel] : [];
 
+    // Get world name from worldConfiguration if available
+    const worldName = metadata.worldConfiguration?.name;
+
     // Find thumbnail from content mapping
     let thumbnail: string | undefined;
     const navmapThumbnail = metadata.display?.navmapThumbnail;
@@ -108,6 +116,8 @@ async function fetchSceneData(baseUrl: string, hash: string): Promise<SceneMetad
       thumbnail,
       positions,
       loading: false,
+      isWorld,
+      worldName,
     };
   } catch {
     return null;
@@ -122,11 +132,11 @@ async function fetchSceneMetadata(sceneId: string): Promise<SceneMetadata> {
   }
 
   // Try Catalyst first (regular scenes)
-  let metadata = await fetchSceneData(CATALYST_URL, sceneId);
+  let metadata = await fetchSceneData(CATALYST_URL, sceneId, false);
 
   // If not found, try Worlds server
   if (!metadata) {
-    metadata = await fetchSceneData(WORLDS_URL, sceneId);
+    metadata = await fetchSceneData(WORLDS_URL, sceneId, true);
   }
 
   // If still not found, return error
@@ -194,8 +204,6 @@ export function ConsumerCard({ consumer }: ConsumerCardProps) {
         </div>
       </div>
 
-      <div className="consumer-method">{consumer.processMethod}</div>
-
       {consumer.status === 'processing' && consumer.currentSceneId && (
         <div className="consumer-current">
           {/* Scene Info Section */}
@@ -215,13 +223,19 @@ export function ConsumerCard({ consumer }: ConsumerCardProps) {
                   <div className="scene-name" title={sceneMetadata?.name}>
                     {sceneMetadata?.name || 'Unknown Scene'}
                   </div>
-                  {sceneMetadata?.positions && sceneMetadata.positions.length > 0 && (
-                    <div className="scene-position">
-                      {sceneMetadata.positions.length === 1
-                        ? sceneMetadata.positions[0]
-                        : `${sceneMetadata.positions[0]} (+${sceneMetadata.positions.length - 1} more)`
-                      }
+                  {sceneMetadata?.isWorld && sceneMetadata?.worldName ? (
+                    <div className="scene-world-name">
+                      🌐 {sceneMetadata.worldName}
                     </div>
+                  ) : (
+                    sceneMetadata?.positions && sceneMetadata.positions.length > 0 && (
+                      <div className="scene-position">
+                        {sceneMetadata.positions.length === 1
+                          ? sceneMetadata.positions[0]
+                          : `${sceneMetadata.positions[0]} (+${sceneMetadata.positions.length - 1} more)`
+                        }
+                      </div>
+                    )
                   )}
                 </>
               )}
@@ -260,17 +274,17 @@ export function ConsumerCard({ consumer }: ConsumerCardProps) {
         </div>
       )}
 
-      <div className="consumer-stats">
-        <div className="stat">
-          <span className="stat-label">Completed:</span>
+      <div className="consumer-stats-grid">
+        <div className="stat-item">
+          <span className="stat-label">Completed</span>
           <span className="stat-value success">{consumer.jobsCompleted}</span>
         </div>
-        <div className="stat">
-          <span className="stat-label">Failed:</span>
+        <div className="stat-item">
+          <span className="stat-label">Failed</span>
           <span className="stat-value failed">{consumer.jobsFailed}</span>
         </div>
-        <div className="stat">
-          <span className="stat-label">Avg Time:</span>
+        <div className="stat-item">
+          <span className="stat-label">Avg Time</span>
           <span className="stat-value">
             {consumer.avgProcessingTimeMs > 0
               ? formatDuration(consumer.avgProcessingTimeMs)

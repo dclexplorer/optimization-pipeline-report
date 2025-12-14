@@ -55,7 +55,6 @@ export function ProcessingHistory({ history }: ProcessingHistoryProps) {
             <tr>
               <th>Status</th>
               <th>Scene ID</th>
-              <th>Method</th>
               <th>Consumer</th>
               <th>Duration</th>
               <th>Completed</th>
@@ -74,7 +73,6 @@ export function ProcessingHistory({ history }: ProcessingHistoryProps) {
                     ? `${entry.sceneId.slice(0, 21)}...`
                     : entry.sceneId}
                 </td>
-                <td>{entry.processMethod}</td>
                 <td title={entry.consumerId}>{truncateId(entry.consumerId)}</td>
                 <td>{formatDuration(entry.durationMs)}</td>
                 <td>{formatTimeAgo(entry.completedAt)}</td>
