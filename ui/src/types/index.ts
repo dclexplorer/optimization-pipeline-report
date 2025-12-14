@@ -98,6 +98,11 @@ export interface QueueMetrics {
   lastUpdated: string;
 }
 
+export interface QueueHistoryPoint {
+  queueDepth: number;
+  timestamp: string;
+}
+
 export type ConsumerStatus = 'idle' | 'processing' | 'offline';
 
 export interface Consumer {
@@ -125,6 +130,8 @@ export interface ProcessingHistoryEntry {
 
 export interface MonitoringData {
   queue: QueueMetrics | null;
+  queueHistory: QueueHistoryPoint[];
   consumers: Consumer[];
   recentHistory: ProcessingHistoryEntry[];
+  processedLastHour: number;
 }

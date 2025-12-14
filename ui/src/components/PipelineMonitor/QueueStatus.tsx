@@ -1,7 +1,10 @@
-import type { QueueMetrics } from '../../types';
+import type { QueueMetrics, QueueHistoryPoint } from '../../types';
+import { QueueDepthChart } from './QueueDepthChart';
 
 interface QueueStatusProps {
   queue: QueueMetrics | null;
+  queueHistory: QueueHistoryPoint[];
+  processedLastHour: number;
 }
 
 function formatTimeAgo(timestamp: string): string {
@@ -17,7 +20,7 @@ function formatTimeAgo(timestamp: string): string {
   return `${diffHour}h ago`;
 }
 
-export function QueueStatus({ queue }: QueueStatusProps) {
+export function QueueStatus({ queue, queueHistory, processedLastHour }: QueueStatusProps) {
   if (!queue) {
     return (
       <div className="queue-status">
@@ -38,10 +41,15 @@ export function QueueStatus({ queue }: QueueStatusProps) {
           <div className="stat-label">Queue Depth</div>
         </div>
         <div className="queue-stat">
+          <div className="stat-value">{processedLastHour.toLocaleString()}</div>
+          <div className="stat-label">Processed (1h)</div>
+        </div>
+        <div className="queue-stat">
           <div className="stat-value">{formatTimeAgo(queue.lastUpdated)}</div>
           <div className="stat-label">Last Update</div>
         </div>
       </div>
+      <QueueDepthChart history={queueHistory} />
     </div>
   );
 }

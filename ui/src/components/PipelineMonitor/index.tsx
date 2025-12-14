@@ -47,7 +47,11 @@ export function PipelineMonitor() {
         </span>
       </div>
 
-      <QueueStatus queue={data.queue} />
+      <QueueStatus
+        queue={data.queue}
+        queueHistory={data.queueHistory || []}
+        processedLastHour={data.processedLastHour || 0}
+      />
 
       <div className="consumers-section">
         <h3>Active Consumers ({onlineConsumers.length})</h3>

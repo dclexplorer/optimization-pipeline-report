@@ -28,6 +28,7 @@ export default async function handler(req, res) {
 
     // Get latest queue metrics
     let queue = null;
+    let queueHistory = [];
     try {
       const queueResult = await sql`
         SELECT queue_depth, timestamp
@@ -43,8 +44,34 @@ export default async function handler(req, res) {
           lastUpdated: row.timestamp
         };
       }
+
+      // Get queue depth history for last 24 hours (sampled to ~288 points = every 5 min)
+      const historyResult = await sql`
+        WITH ranked AS (
+          SELECT
+            queue_depth,
+            timestamp,
+            ROW_NUMBER() OVER (
+              PARTITION BY DATE_TRUNC('hour', timestamp),
+                           FLOOR(EXTRACT(MINUTE FROM timestamp) / 5)
+              ORDER BY timestamp DESC
+            ) as rn
+          FROM pipeline_queue_metrics
+          WHERE timestamp > NOW() - INTERVAL '24 hours'
+        )
+        SELECT queue_depth, timestamp
+        FROM ranked
+        WHERE rn = 1
+        ORDER BY timestamp ASC
+      `;
+
+      queueHistory = historyResult.rows.map(row => ({
+        queueDepth: row.queue_depth,
+        timestamp: row.timestamp
+      }));
     } catch (e) {
       // Table might not exist yet
+      console.error('Queue metrics error:', e.message);
     }
 
     // Get all consumers and determine online/offline status
@@ -105,8 +132,9 @@ export default async function handler(req, res) {
       // Table might not exist yet
     }
 
-    // Get recent processing history (last 50 entries)
+    // Get recent processing history (last 50 entries) and count processed in last hour
     let recentHistory = [];
+    let processedLastHour = 0;
     try {
       const historyResult = await sql`
         SELECT
@@ -130,6 +158,15 @@ export default async function handler(req, res) {
         completedAt: row.completed_at
       }));
 
+      // Count scenes processed in last hour
+      const countResult = await sql`
+        SELECT COUNT(*) as count
+        FROM pipeline_process_history
+        WHERE completed_at > NOW() - INTERVAL '1 hour'
+          AND status = 'success'
+      `;
+      processedLastHour = parseInt(countResult.rows[0]?.count || '0', 10);
+
       // Cleanup old history entries (older than 24 hours)
       await sql`
         DELETE FROM pipeline_process_history
@@ -141,8 +178,10 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       queue,
+      queueHistory,
       consumers,
-      recentHistory
+      recentHistory,
+      processedLastHour
     });
   } catch (error) {
     console.error('Error fetching monitoring status:', error);
