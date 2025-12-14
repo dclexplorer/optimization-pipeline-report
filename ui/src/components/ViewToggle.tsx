@@ -6,9 +6,8 @@ interface ViewToggleProps {
 }
 
 const views: { id: MapView; label: string }[] = [
-  { id: 'scenes', label: 'Scene View' },
   { id: 'optimization', label: 'Optimization View' },
-  { id: 'reports', label: 'Report Status View' },
+  { id: 'scenes', label: 'Scene View' },
 ];
 
 export function ViewToggle({ currentView, onViewChange }: ViewToggleProps) {

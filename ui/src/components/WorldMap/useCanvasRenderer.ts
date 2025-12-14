@@ -24,15 +24,6 @@ function getOptimizationColor(land: LandData): string {
   return COLORS.notOptimized;
 }
 
-function getReportStatusColor(land: LandData): string {
-  if (!land.sceneId) return COLORS.empty;
-  if (land.hasOptimizedAssets) return COLORS.optimized;
-  if (land.optimizationReport) {
-    return land.optimizationReport.success ? COLORS.reportSuccess : COLORS.failed;
-  }
-  return COLORS.noReport;
-}
-
 export function useCanvasRenderer({
   lands,
   sceneColorIndices,
@@ -44,9 +35,6 @@ export function useCanvasRenderer({
   const getColor = useCallback((land: LandData): string => {
     if (view === 'optimization') {
       return getOptimizationColor(land);
-    }
-    if (view === 'reports') {
-      return getReportStatusColor(land);
     }
     // scenes view
     if (!land.sceneId) return COLORS.empty;

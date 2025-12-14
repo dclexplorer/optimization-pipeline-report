@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { TabName, MapView, LandData } from '../types';
 import { useReportData } from '../hooks/useReportData';
 import { Header } from './Header';
@@ -14,13 +14,47 @@ import { HistoryView } from './HistoryView';
 import { WorldsList } from './WorldsList';
 import { PipelineMonitor } from './PipelineMonitor';
 
+const TAB_HASH_MAP: Record<string, TabName> = {
+  '#overview': 'overview',
+  '#optimization': 'optimization',
+  '#worlds': 'worlds',
+  '#pipeline': 'pipeline',
+  '#history': 'history',
+};
+
+const VALID_TABS: TabName[] = ['overview', 'optimization', 'worlds', 'pipeline', 'history'];
+
+function getTabFromHash(): TabName {
+  const hash = window.location.hash;
+  return TAB_HASH_MAP[hash] || 'overview';
+}
+
 export default function App() {
   const { data, isLoading, error } = useReportData();
-  const [activeTab, setActiveTab] = useState<TabName>('overview');
-  const [mapView, setMapView] = useState<MapView>('scenes');
+  const [activeTab, setActiveTab] = useState<TabName>(getTabFromHash);
+  const [mapView, setMapView] = useState<MapView>('optimization');
   const [optimizationMapView, setOptimizationMapView] = useState<MapView>('optimization');
   const [hoveredLand, setHoveredLand] = useState<{ land: LandData; x: number; y: number } | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+
+  // Update URL hash when tab changes
+  const handleTabChange = useCallback((tab: TabName) => {
+    setActiveTab(tab);
+    window.location.hash = tab;
+  }, []);
+
+  // Listen for hash changes (back/forward navigation)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const newTab = getTabFromHash();
+      if (VALID_TABS.includes(newTab)) {
+        setActiveTab(newTab);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const handleLandClick = useCallback((land: LandData) => {
     if (land.sceneId) {
@@ -61,7 +95,7 @@ export default function App() {
   return (
     <div className="container">
       <Header generatedAt={data.generatedAt} />
-      <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabNavigation activeTab={activeTab} onTabChange={handleTabChange} />
 
       {activeTab === 'overview' && (
         <div className="tab-content active">

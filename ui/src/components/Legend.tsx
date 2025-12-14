@@ -6,22 +6,15 @@ interface LegendProps {
 }
 
 const legendItems: Record<MapView, { color: string; label: string; isGradient?: boolean }[]> = {
-  scenes: [
-    { color: COLORS.empty, label: 'Empty Land' },
-    { color: 'linear-gradient(45deg, #667eea, #764ba2)', label: 'Occupied by Scene', isGradient: true },
-  ],
   optimization: [
     { color: COLORS.empty, label: 'Empty Land' },
     { color: COLORS.optimized, label: 'Optimized' },
     { color: COLORS.failed, label: 'Has Report (Failed)' },
     { color: COLORS.notOptimized, label: 'Not Optimized' },
   ],
-  reports: [
+  scenes: [
     { color: COLORS.empty, label: 'Empty Land' },
-    { color: COLORS.optimized, label: 'Optimized' },
-    { color: COLORS.reportSuccess, label: 'Report (Success)' },
-    { color: COLORS.failed, label: 'Report (Failed)' },
-    { color: COLORS.noReport, label: 'No Report' },
+    { color: 'linear-gradient(45deg, #667eea, #764ba2)', label: 'Occupied by Scene', isGradient: true },
   ],
 };
 

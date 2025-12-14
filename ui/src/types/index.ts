@@ -79,8 +79,8 @@ export interface HistoryEntry {
   failed_optimizations: number;
 }
 
-export type MapView = 'scenes' | 'optimization' | 'reports';
-export type TabName = 'overview' | 'optimization' | 'history' | 'worlds' | 'pipeline';
+export type MapView = 'optimization' | 'scenes';
+export type TabName = 'overview' | 'optimization' | 'worlds' | 'pipeline' | 'history';
 
 // World types
 export interface WorldWithOptimization {
