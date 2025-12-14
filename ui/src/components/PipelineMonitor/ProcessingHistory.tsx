@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { ProcessingHistoryEntry } from '../../types';
+import { ReportModal } from '../ReportModal';
 
 interface ProcessingHistoryProps {
   history: ProcessingHistoryEntry[];
@@ -115,7 +116,12 @@ async function fetchSceneMetadata(sceneId: string): Promise<SceneMetadata> {
   return metadata;
 }
 
-function HistoryCard({ entry }: { entry: ProcessingHistoryEntry }) {
+interface HistoryCardProps {
+  entry: ProcessingHistoryEntry;
+  onViewReport: () => void;
+}
+
+function HistoryCard({ entry, onViewReport }: HistoryCardProps) {
   const [metadata, setMetadata] = useState<SceneMetadata | null>(null);
 
   useEffect(() => {
@@ -173,12 +179,17 @@ function HistoryCard({ entry }: { entry: ProcessingHistoryEntry }) {
 
       <div className="history-card-footer">
         <span className="history-duration">Duration: {formatDuration(entry.durationMs)}</span>
+        <button className="history-view-report-btn" onClick={onViewReport}>
+          View Report
+        </button>
       </div>
     </div>
   );
 }
 
 export function ProcessingHistory({ history }: ProcessingHistoryProps) {
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+
   // Limit to 20 entries
   const limitedHistory = history.slice(0, 20);
 
@@ -199,9 +210,17 @@ export function ProcessingHistory({ history }: ProcessingHistoryProps) {
           <HistoryCard
             key={`${entry.sceneId}-${entry.completedAt}-${index}`}
             entry={entry}
+            onViewReport={() => setSelectedSceneId(entry.sceneId)}
           />
         ))}
       </div>
+
+      {selectedSceneId && (
+        <ReportModal
+          sceneId={selectedSceneId}
+          onClose={() => setSelectedSceneId(null)}
+        />
+      )}
     </div>
   );
 }
