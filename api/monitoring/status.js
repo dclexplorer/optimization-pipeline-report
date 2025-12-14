@@ -136,7 +136,7 @@ export default async function handler(req, res) {
       // Table might not exist yet
     }
 
-    // Get recent processing history (last 50 entries) and count processed in last hour
+    // Get recent processing history (last 20 entries) and count processed in last hour
     let recentHistory = [];
     let processedLastHour = 0;
     try {
@@ -150,7 +150,7 @@ export default async function handler(req, res) {
           completed_at
         FROM pipeline_process_history
         ORDER BY completed_at DESC
-        LIMIT 50
+        LIMIT 20
       `;
 
       recentHistory = historyResult.rows.map(row => ({
