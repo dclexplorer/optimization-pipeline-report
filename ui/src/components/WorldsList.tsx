@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { WorldWithOptimization, WorldsStats } from '../types';
 import { ReportModal } from './ReportModal';
-import { useQueueTrigger } from '../hooks/useQueueTrigger';
 
 type FilterType = 'all' | 'optimized' | 'not-optimized';
 
@@ -14,7 +13,6 @@ export function WorldsList({ worlds, stats }: WorldsListProps) {
   const [filter, setFilter] = useState<FilterType>('all');
   const [selectedWorld, setSelectedWorld] = useState<WorldWithOptimization | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const { state: queueState, triggerQueue } = useQueueTrigger();
 
   const filteredWorlds = worlds.filter((world) => {
     const matchesFilter =
@@ -102,8 +100,6 @@ export function WorldsList({ worlds, stats }: WorldsListProps) {
             key={world.name}
             world={world}
             onViewReport={() => setSelectedWorld(world)}
-            onAddToQueue={() => triggerQueue(world.sceneId, true)}
-            queueState={queueState}
           />
         ))}
       </div>
@@ -119,25 +115,12 @@ export function WorldsList({ worlds, stats }: WorldsListProps) {
   );
 }
 
-interface QueueState {
-  isLoading: boolean;
-  error: string | null;
-  success: boolean;
-  lastTriggeredId: string | null;
-}
-
 interface WorldCardProps {
   world: WorldWithOptimization;
   onViewReport: () => void;
-  onAddToQueue: () => void;
-  queueState: QueueState;
 }
 
-function WorldCard({ world, onViewReport, onAddToQueue, queueState }: WorldCardProps) {
-  const isThisCardLoading = queueState.isLoading && queueState.lastTriggeredId === world.sceneId;
-  const showSuccess = queueState.success && queueState.lastTriggeredId === world.sceneId;
-  const showError = queueState.error && queueState.lastTriggeredId === world.sceneId;
-
+function WorldCard({ world, onViewReport }: WorldCardProps) {
   return (
     <div className={`world-card ${world.hasOptimizedAssets ? 'optimized' : 'not-optimized'}`}>
       <div className="world-thumbnail">
@@ -162,20 +145,7 @@ function WorldCard({ world, onViewReport, onAddToQueue, queueState }: WorldCardP
           <button onClick={onViewReport} className="view-report-btn">
             View Report
           </button>
-          <button
-            onClick={onAddToQueue}
-            className="add-queue-btn"
-            disabled={isThisCardLoading}
-          >
-            {isThisCardLoading ? 'Adding...' : 'Priority Queue'}
-          </button>
         </div>
-        {showSuccess && (
-          <div className="queue-feedback success">Added to queue!</div>
-        )}
-        {showError && (
-          <div className="queue-feedback error">{queueState.error}</div>
-        )}
       </div>
     </div>
   );
