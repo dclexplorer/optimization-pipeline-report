@@ -14,16 +14,18 @@ import { HistoryView } from './HistoryView';
 import { WorldsList } from './WorldsList';
 import { PipelineMonitor } from './PipelineMonitor';
 import { RankingView } from './RankingView';
+import { FailingView } from './FailingView';
 
 const TAB_HASH_MAP: Record<string, TabName> = {
   '#overview': 'overview',
   '#worlds': 'worlds',
   '#pipeline': 'pipeline',
   '#ranking': 'ranking',
+  '#failing': 'failing',
   '#history': 'history',
 };
 
-const VALID_TABS: TabName[] = ['overview', 'worlds', 'pipeline', 'ranking', 'history'];
+const VALID_TABS: TabName[] = ['overview', 'worlds', 'pipeline', 'ranking', 'failing', 'history'];
 
 function getTabFromHash(): TabName {
   const hash = window.location.hash;
@@ -132,6 +134,12 @@ export default function App() {
       {activeTab === 'ranking' && (
         <div className="tab-content active">
           <RankingView />
+        </div>
+      )}
+
+      {activeTab === 'failing' && (
+        <div className="tab-content active">
+          <FailingView worlds={data.worlds} lands={data.lands} />
         </div>
       )}
 

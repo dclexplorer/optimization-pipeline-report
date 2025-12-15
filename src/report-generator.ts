@@ -40,14 +40,15 @@ export class ReportGenerator {
     });
 
     // Compress worlds data
-    // Format: [name, sceneId, title, thumbnail, parcels, hasOptimized]
+    // Format: [name, sceneId, title, thumbnail, parcels, hasOptimized, hasFailed?]
     const compressedWorlds = worldsData?.worlds.map(world => [
       world.name,
       world.sceneId,
       world.title,
       world.thumbnail || '',
       world.parcels,
-      world.hasOptimizedAssets ? 1 : 0
+      world.hasOptimizedAssets ? 1 : 0,
+      world.hasFailed ? 1 : 0
     ]) || [];
 
     return {

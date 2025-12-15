@@ -11,6 +11,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
     { id: 'worlds', label: 'Worlds' },
     { id: 'pipeline', label: 'Pipeline' },
     { id: 'ranking', label: 'Ranking' },
+    { id: 'failing', label: 'Failing' },
     { id: 'history', label: 'History' },
   ];
 

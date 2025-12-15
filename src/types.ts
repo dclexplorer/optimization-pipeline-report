@@ -1,6 +1,7 @@
 export interface OptimizationReport {
   sceneId: string;
   success: boolean;
+  fatalError?: boolean;
   timestamp?: string;
   error?: string;
   details?: {
@@ -58,11 +59,14 @@ export interface WorldWithOptimization {
   thumbnail?: string;
   parcels: number;
   hasOptimizedAssets: boolean;
+  hasFailed?: boolean;
+  optimizationReport?: OptimizationReport;
 }
 
 export interface WorldsStats {
   totalWorlds: number;
   optimizedWorlds: number;
   notOptimizedWorlds: number;
+  failedWorlds: number;
   optimizationPercentage: number;
 }

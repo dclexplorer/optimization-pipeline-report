@@ -29,7 +29,7 @@ function decompressData(compressed: CompressedReportData): ReportData {
   }));
 
   // Decompress worlds data
-  // Format: [name, sceneId, title, thumbnail, parcels, hasOptimized]
+  // Format: [name, sceneId, title, thumbnail, parcels, hasOptimized, hasFailed?]
   const worlds: WorldWithOptimization[] = (compressed.w || []).map((world) => ({
     name: world[0],
     sceneId: world[1],
@@ -37,6 +37,7 @@ function decompressData(compressed: CompressedReportData): ReportData {
     thumbnail: world[3] || undefined,
     parcels: world[4],
     hasOptimizedAssets: world[5] === 1,
+    hasFailed: world[6] === 1,
   }));
 
   return {

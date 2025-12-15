@@ -1,6 +1,7 @@
 export interface OptimizationReport {
   sceneId: string;
   success: boolean;
+  fatalError?: boolean;
   timestamp?: string;
   error?: string;
   details?: {
@@ -45,13 +46,14 @@ export interface Stats {
 // Compressed format from R2: [x, y, sceneId, hasOptimized, reportSuccess?]
 export type CompressedLand = [number, number, string, number, number?];
 
-// Compressed world format: [name, sceneId, title, thumbnail, parcels, hasOptimized]
-export type CompressedWorld = [string, string, string, string, number, number];
+// Compressed world format: [name, sceneId, title, thumbnail, parcels, hasOptimized, hasFailed?]
+export type CompressedWorld = [string, string, string, string, number, number, number?];
 
 export interface WorldsStats {
   totalWorlds: number;
   optimizedWorlds: number;
   notOptimizedWorlds: number;
+  failedWorlds: number;
   optimizationPercentage: number;
 }
 
@@ -80,7 +82,7 @@ export interface HistoryEntry {
 }
 
 export type MapView = 'optimization' | 'scenes';
-export type TabName = 'overview' | 'worlds' | 'pipeline' | 'ranking' | 'history';
+export type TabName = 'overview' | 'worlds' | 'pipeline' | 'ranking' | 'failing' | 'history';
 
 export interface RankingEntry {
   rank: number;
@@ -100,6 +102,8 @@ export interface WorldWithOptimization {
   thumbnail?: string;
   parcels: number;
   hasOptimizedAssets: boolean;
+  hasFailed?: boolean;
+  optimizationReport?: OptimizationReport;
 }
 
 // Pipeline Monitoring types

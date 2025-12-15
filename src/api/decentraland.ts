@@ -80,6 +80,7 @@ export class DecentralandAPI {
         return {
           sceneId,
           success: response.data.success || false,
+          fatalError: response.data.fatalError || false,
           timestamp: response.data.timestamp,
           error: response.data.error,
           details: response.data
