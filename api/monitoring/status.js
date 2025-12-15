@@ -45,11 +45,23 @@ export default async function handler(req, res) {
         };
       }
 
-      // Get all queue depth history for last 7 days (no sampling - let frontend filter)
+      // Get queue depth history for last 7 days (sampled every 2 hours = ~84 points)
       const historyResult = await sql`
+        WITH ranked AS (
+          SELECT
+            queue_depth,
+            timestamp,
+            ROW_NUMBER() OVER (
+              PARTITION BY DATE_TRUNC('day', timestamp),
+                           FLOOR(EXTRACT(HOUR FROM timestamp) / 2)
+              ORDER BY timestamp DESC
+            ) as rn
+          FROM pipeline_queue_metrics
+          WHERE timestamp > NOW() - INTERVAL '7 days'
+        )
         SELECT queue_depth, timestamp
-        FROM pipeline_queue_metrics
-        WHERE timestamp > NOW() - INTERVAL '7 days'
+        FROM ranked
+        WHERE rn = 1
         ORDER BY timestamp ASC
       `;
 
