@@ -242,27 +242,66 @@ interface BulkQueueResult {
 export function FailingView({ worlds, lands }: FailingViewProps) {
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'scenes' | 'worlds'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password, setPassword] = useState('');
   const [isQueuing, setIsQueuing] = useState(false);
   const [queueResult, setQueueResult] = useState<BulkQueueResult | null>(null);
   const [queueError, setQueueError] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const failedWorlds = worlds.filter(w => w.hasFailed);
   const failedScenes = getFailedScenes(lands);
 
   const totalFailed = failedWorlds.length + failedScenes.length;
 
-  // Get all scene IDs based on current filter
+  // Filter scenes based on search query (by name, position, or sceneId)
+  const filteredScenes = failedScenes.filter(scene => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    // Check positions
+    if (scene.positions.some(pos => pos.includes(query))) return true;
+    // Check sceneId
+    if (scene.sceneId.toLowerCase().includes(query)) return true;
+    // Check cached metadata name
+    const metadata = sceneMetadataCache.get(scene.sceneId);
+    if (metadata?.name?.toLowerCase().includes(query)) return true;
+    return false;
+  });
+
+  // Filter worlds based on search query
+  const filteredWorlds = failedWorlds.filter(world => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    if (world.name.toLowerCase().includes(query)) return true;
+    if (world.title?.toLowerCase().includes(query)) return true;
+    if (world.sceneId.toLowerCase().includes(query)) return true;
+    return false;
+  });
+
+  // Get scene IDs based on current filter AND search query
   const getSceneIdsToQueue = (): string[] => {
     const ids: string[] = [];
     if (filter === 'all' || filter === 'scenes') {
-      ids.push(...failedScenes.map(s => s.sceneId));
+      ids.push(...filteredScenes.map(s => s.sceneId));
     }
     if (filter === 'all' || filter === 'worlds') {
-      ids.push(...failedWorlds.map(w => w.sceneId));
+      ids.push(...filteredWorlds.map(w => w.sceneId));
     }
     return ids;
+  };
+
+  const handleCopySceneIds = async () => {
+    const sceneIds = getSceneIdsToQueue();
+    if (sceneIds.length === 0) return;
+
+    try {
+      await navigator.clipboard.writeText(sceneIds.join('\n'));
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
   const handleAddToPriority = () => {
@@ -345,44 +384,69 @@ export function FailingView({ worlds, lands }: FailingViewProps) {
       </div>
 
       <div className="failing-controls">
-        <div className="filter-buttons">
+        <div className="failing-controls-row">
+          <div className="search-box">
+            <input
+              type="text"
+              placeholder="Search by name, position, or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="filter-buttons">
+            <button
+              className={filter === 'all' ? 'active' : ''}
+              onClick={() => setFilter('all')}
+            >
+              All ({totalFailed})
+            </button>
+            <button
+              className={filter === 'scenes' ? 'active' : ''}
+              onClick={() => setFilter('scenes')}
+            >
+              Scenes ({failedScenes.length})
+            </button>
+            <button
+              className={filter === 'worlds' ? 'active' : ''}
+              onClick={() => setFilter('worlds')}
+            >
+              Worlds ({failedWorlds.length})
+            </button>
+          </div>
+        </div>
+        <div className="failing-actions">
           <button
-            className={filter === 'all' ? 'active' : ''}
-            onClick={() => setFilter('all')}
+            className="copy-ids-btn"
+            onClick={handleCopySceneIds}
+            disabled={getSceneIdsToQueue().length === 0}
           >
-            All ({totalFailed})
+            {copySuccess ? 'Copied!' : `Copy Scene IDs (${getSceneIdsToQueue().length})`}
           </button>
           <button
-            className={filter === 'scenes' ? 'active' : ''}
-            onClick={() => setFilter('scenes')}
+            className="add-to-priority-btn"
+            onClick={handleAddToPriority}
+            disabled={getSceneIdsToQueue().length === 0}
           >
-            Scenes ({failedScenes.length})
-          </button>
-          <button
-            className={filter === 'worlds' ? 'active' : ''}
-            onClick={() => setFilter('worlds')}
-          >
-            Worlds ({failedWorlds.length})
+            Add All to Priority ({getSceneIdsToQueue().length})
           </button>
         </div>
-        <button
-          className="add-to-priority-btn"
-          onClick={handleAddToPriority}
-          disabled={getSceneIdsToQueue().length === 0}
-        >
-          Add All to Priority ({getSceneIdsToQueue().length})
-        </button>
       </div>
 
+      {searchQuery && (
+        <div className="failing-filter-info">
+          Showing {filteredScenes.length + filteredWorlds.length} of {totalFailed} failed items
+        </div>
+      )}
+
       <div className="history-grid">
-        {showWorlds && failedWorlds.map((world) => (
+        {showWorlds && filteredWorlds.map((world) => (
           <FailedWorldCard
             key={world.sceneId}
             world={world}
             onViewReport={() => setSelectedSceneId(world.sceneId)}
           />
         ))}
-        {showScenes && failedScenes.map((scene) => (
+        {showScenes && filteredScenes.map((scene) => (
           <FailedSceneCard
             key={scene.sceneId}
             sceneId={scene.sceneId}
