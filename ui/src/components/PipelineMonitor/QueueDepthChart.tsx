@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import type { QueueHistoryPoint } from '../../types';
 
-export type TimeRange = '24h' | '12h' | '6h' | '3h' | '1h';
+export type TimeRange = '7d' | '3d' | '24h' | '12h' | '6h' | '3h' | '1h';
 
 interface QueueDepthChartProps {
   history: QueueHistoryPoint[];
@@ -19,6 +19,8 @@ interface QueueDepthChartProps {
 }
 
 const TIME_RANGE_MS: Record<TimeRange, number> = {
+  '7d': 7 * 24 * 60 * 60 * 1000,
+  '3d': 3 * 24 * 60 * 60 * 1000,
   '24h': 24 * 60 * 60 * 1000,
   '12h': 12 * 60 * 60 * 1000,
   '6h': 6 * 60 * 60 * 1000,
@@ -26,8 +28,13 @@ const TIME_RANGE_MS: Record<TimeRange, number> = {
   '1h': 1 * 60 * 60 * 1000,
 };
 
-function formatTime(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+function formatTime(timestamp: string, showDate: boolean): string {
+  const date = new Date(timestamp);
+  if (showDate) {
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
+           date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatTooltipTime(timestamp: string): string {
@@ -35,19 +42,20 @@ function formatTooltipTime(timestamp: string): string {
 }
 
 export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: QueueDepthChartProps) {
-  const timeRangeOptions: TimeRange[] = ['24h', '12h', '6h', '3h', '1h'];
+  const timeRangeOptions: TimeRange[] = ['7d', '3d', '24h', '12h', '6h', '3h', '1h'];
 
   const filteredData = useMemo(() => {
     const now = Date.now();
     const rangeMs = TIME_RANGE_MS[timeRange];
     const startTime = now - rangeMs;
+    const showDate = timeRange === '7d' || timeRange === '3d';
 
     return history
       .filter(h => new Date(h.timestamp).getTime() >= startTime)
       .map(h => ({
         ...h,
         time: new Date(h.timestamp).getTime(),
-        formattedTime: formatTime(h.timestamp),
+        formattedTime: formatTime(h.timestamp, showDate),
       }));
   }, [history, timeRange]);
 

@@ -45,19 +45,20 @@ export default async function handler(req, res) {
         };
       }
 
-      // Get queue depth history for last 24 hours (sampled to ~288 points = every 5 min)
+      // Get queue depth history for last 7 days (sampled to ~336 points = every 30 min)
       const historyResult = await sql`
         WITH ranked AS (
           SELECT
             queue_depth,
             timestamp,
             ROW_NUMBER() OVER (
-              PARTITION BY DATE_TRUNC('hour', timestamp),
-                           FLOOR(EXTRACT(MINUTE FROM timestamp) / 5)
+              PARTITION BY DATE_TRUNC('day', timestamp),
+                           EXTRACT(HOUR FROM timestamp),
+                           FLOOR(EXTRACT(MINUTE FROM timestamp) / 30)
               ORDER BY timestamp DESC
             ) as rn
           FROM pipeline_queue_metrics
-          WHERE timestamp > NOW() - INTERVAL '24 hours'
+          WHERE timestamp > NOW() - INTERVAL '7 days'
         )
         SELECT queue_depth, timestamp
         FROM ranked
