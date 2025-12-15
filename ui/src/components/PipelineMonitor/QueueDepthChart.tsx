@@ -28,9 +28,20 @@ const TIME_RANGE_MS: Record<TimeRange, number> = {
   '1h': 1 * 60 * 60 * 1000,
 };
 
-function formatAxisTime(timestamp: number, showDate: boolean): string {
+// Number of ticks to show for each time range
+const TICK_COUNT: Record<TimeRange, number> = {
+  '7d': 7,
+  '3d': 6,
+  '24h': 8,
+  '12h': 6,
+  '6h': 6,
+  '3h': 6,
+  '1h': 6,
+};
+
+function formatAxisTime(timestamp: number, timeRange: TimeRange): string {
   const date = new Date(timestamp);
-  if (showDate) {
+  if (timeRange === '7d' || timeRange === '3d') {
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   }
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -40,14 +51,22 @@ function formatTooltipTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString();
 }
 
+function generateTicks(startTime: number, endTime: number, count: number): number[] {
+  const ticks: number[] = [];
+  const step = (endTime - startTime) / count;
+  for (let i = 0; i <= count; i++) {
+    ticks.push(startTime + step * i);
+  }
+  return ticks;
+}
+
 export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: QueueDepthChartProps) {
   const timeRangeOptions: TimeRange[] = ['7d', '3d', '24h', '12h', '6h', '3h', '1h'];
 
-  const { filteredData, domain, showDate } = useMemo(() => {
+  const { filteredData, domain, ticks } = useMemo(() => {
     const now = Date.now();
     const rangeMs = TIME_RANGE_MS[timeRange];
     const startTime = now - rangeMs;
-    const showDate = timeRange === '7d' || timeRange === '3d';
 
     const data = history
       .filter(h => new Date(h.timestamp).getTime() >= startTime)
@@ -56,10 +75,13 @@ export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: Queue
         time: new Date(h.timestamp).getTime(),
       }));
 
+    const tickCount = TICK_COUNT[timeRange];
+    const generatedTicks = generateTicks(startTime, now, tickCount);
+
     return {
       filteredData: data,
       domain: [startTime, now] as [number, number],
-      showDate,
+      ticks: generatedTicks,
     };
   }, [history, timeRange]);
 
@@ -106,7 +128,8 @@ export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: Queue
             type="number"
             scale="time"
             domain={domain}
-            tickFormatter={(value) => formatAxisTime(value, showDate)}
+            ticks={ticks}
+            tickFormatter={(value) => formatAxisTime(value, timeRange)}
             tick={{ fontSize: 11, fill: '#6c757d' }}
             tickLine={{ stroke: '#6c757d' }}
             axisLine={{ stroke: '#6c757d' }}
@@ -135,7 +158,7 @@ export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: Queue
             stroke="#667eea"
             strokeWidth={2}
             fill="url(#queueGradient)"
-            dot={filteredData.length <= 50}
+            dot={false}
             activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
           />
         </AreaChart>
