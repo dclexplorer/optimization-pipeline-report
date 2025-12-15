@@ -4,7 +4,7 @@ import { ConsumerCard } from './ConsumerCard';
 import { ProcessingHistory } from './ProcessingHistory';
 
 export function PipelineMonitor() {
-  const { data, isLoading, error } = useMonitoringData();
+  const { data, isLoading, error, queueRange, setQueueRange } = useMonitoringData();
 
   if (isLoading && !data) {
     return (
@@ -51,6 +51,8 @@ export function PipelineMonitor() {
         queue={data.queue}
         queueHistory={data.queueHistory || []}
         processedLastHour={data.processedLastHour || 0}
+        timeRange={queueRange}
+        onTimeRangeChange={setQueueRange}
       />
 
       <div className="consumers-section">

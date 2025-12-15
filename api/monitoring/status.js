@@ -45,25 +45,77 @@ export default async function handler(req, res) {
         };
       }
 
-      // Get queue depth history for last 7 days (sampled every 2 hours = ~84 points)
-      const historyResult = await sql`
-        WITH ranked AS (
-          SELECT
-            queue_depth,
-            timestamp,
-            ROW_NUMBER() OVER (
-              PARTITION BY DATE_TRUNC('day', timestamp),
-                           FLOOR(EXTRACT(HOUR FROM timestamp) / 2)
-              ORDER BY timestamp DESC
-            ) as rn
-          FROM pipeline_queue_metrics
-          WHERE timestamp > NOW() - INTERVAL '7 days'
-        )
-        SELECT queue_depth, timestamp
-        FROM ranked
-        WHERE rn = 1
-        ORDER BY timestamp ASC
-      `;
+      // Get queue depth history based on requested time range
+      // Sampling adjusts based on range to keep ~50-100 points
+      const range = req.query.range || '24h';
+
+      let intervalSql;
+      let samplingPartition;
+
+      switch (range) {
+        case '1h':
+          intervalSql = '1 hour';
+          samplingPartition = null; // No sampling for 1h
+          break;
+        case '3h':
+          intervalSql = '3 hours';
+          samplingPartition = null; // No sampling for 3h
+          break;
+        case '6h':
+          intervalSql = '6 hours';
+          samplingPartition = `FLOOR(EXTRACT(MINUTE FROM timestamp) / 10)`; // Every 10 min
+          break;
+        case '12h':
+          intervalSql = '12 hours';
+          samplingPartition = `FLOOR(EXTRACT(MINUTE FROM timestamp) / 15)`; // Every 15 min
+          break;
+        case '24h':
+          intervalSql = '24 hours';
+          samplingPartition = `FLOOR(EXTRACT(MINUTE FROM timestamp) / 30)`; // Every 30 min
+          break;
+        case '3d':
+          intervalSql = '3 days';
+          samplingPartition = `FLOOR(EXTRACT(HOUR FROM timestamp) / 2)`; // Every 2 hours
+          break;
+        case '7d':
+        default:
+          intervalSql = '7 days';
+          samplingPartition = `FLOOR(EXTRACT(HOUR FROM timestamp) / 4)`; // Every 4 hours
+          break;
+      }
+
+      let historyResult;
+
+      if (!samplingPartition) {
+        // No sampling - return all data points
+        historyResult = await sql.query(
+          `SELECT queue_depth, timestamp
+           FROM pipeline_queue_metrics
+           WHERE timestamp > NOW() - INTERVAL '${intervalSql}'
+           ORDER BY timestamp ASC`
+        );
+      } else {
+        // With sampling
+        historyResult = await sql.query(
+          `WITH ranked AS (
+            SELECT
+              queue_depth,
+              timestamp,
+              ROW_NUMBER() OVER (
+                PARTITION BY DATE_TRUNC('day', timestamp),
+                             EXTRACT(HOUR FROM timestamp),
+                             ${samplingPartition}
+                ORDER BY timestamp DESC
+              ) as rn
+            FROM pipeline_queue_metrics
+            WHERE timestamp > NOW() - INTERVAL '${intervalSql}'
+          )
+          SELECT queue_depth, timestamp
+          FROM ranked
+          WHERE rn = 1
+          ORDER BY timestamp ASC`
+        );
+      }
 
       queueHistory = historyResult.rows.map(row => ({
         queueDepth: row.queue_depth,
