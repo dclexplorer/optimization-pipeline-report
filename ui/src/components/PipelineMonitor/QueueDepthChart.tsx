@@ -28,35 +28,39 @@ const TIME_RANGE_MS: Record<TimeRange, number> = {
   '1h': 1 * 60 * 60 * 1000,
 };
 
-function formatTime(timestamp: string, showDate: boolean): string {
+function formatAxisTime(timestamp: number, showDate: boolean): string {
   const date = new Date(timestamp);
   if (showDate) {
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
-           date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   }
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatTooltipTime(timestamp: string): string {
+function formatTooltipTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString();
 }
 
 export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: QueueDepthChartProps) {
   const timeRangeOptions: TimeRange[] = ['7d', '3d', '24h', '12h', '6h', '3h', '1h'];
 
-  const filteredData = useMemo(() => {
+  const { filteredData, domain, showDate } = useMemo(() => {
     const now = Date.now();
     const rangeMs = TIME_RANGE_MS[timeRange];
     const startTime = now - rangeMs;
     const showDate = timeRange === '7d' || timeRange === '3d';
 
-    return history
+    const data = history
       .filter(h => new Date(h.timestamp).getTime() >= startTime)
       .map(h => ({
         ...h,
         time: new Date(h.timestamp).getTime(),
-        formattedTime: formatTime(h.timestamp, showDate),
       }));
+
+    return {
+      filteredData: data,
+      domain: [startTime, now] as [number, number],
+      showDate,
+    };
   }, [history, timeRange]);
 
   const renderHeader = () => (
@@ -98,7 +102,11 @@ export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: Queue
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
           <XAxis
-            dataKey="formattedTime"
+            dataKey="time"
+            type="number"
+            scale="time"
+            domain={domain}
+            tickFormatter={(value) => formatAxisTime(value, showDate)}
             tick={{ fontSize: 11, fill: '#6c757d' }}
             tickLine={{ stroke: '#6c757d' }}
             axisLine={{ stroke: '#6c757d' }}
@@ -119,12 +127,7 @@ export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: Queue
             labelStyle={{ color: 'white', opacity: 0.8, fontSize: '0.9em' }}
             itemStyle={{ color: 'white', fontWeight: 'bold' }}
             formatter={(value: number) => [`${value.toLocaleString()} items`, 'Queue Depth']}
-            labelFormatter={(label, payload) => {
-              if (payload && payload[0]) {
-                return formatTooltipTime(payload[0].payload.timestamp);
-              }
-              return label;
-            }}
+            labelFormatter={(value) => formatTooltipTime(value as number)}
           />
           <Area
             type="monotone"
