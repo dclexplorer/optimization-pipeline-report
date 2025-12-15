@@ -158,7 +158,7 @@ export function QueueDepthChart({ history, timeRange, onTimeRangeChange }: Queue
             stroke="#667eea"
             strokeWidth={2}
             fill="url(#queueGradient)"
-            dot={false}
+            dot={{ r: 3, fill: '#667eea' }}
             activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
           />
         </AreaChart>
