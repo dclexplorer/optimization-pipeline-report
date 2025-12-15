@@ -61,13 +61,13 @@ export default async function handler(req, res) {
       INSERT INTO pipeline_queue_metrics (queue_depth) VALUES (${queueDepth})
     `;
 
-    // Keep only the last 1000 entries
+    // Keep only the last 15000 entries (~10 days of data at 1 report/minute)
     await sql`
       DELETE FROM pipeline_queue_metrics
       WHERE id NOT IN (
         SELECT id FROM pipeline_queue_metrics
         ORDER BY timestamp DESC
-        LIMIT 1000
+        LIMIT 15000
       )
     `;
 
