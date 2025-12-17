@@ -1,5 +1,5 @@
 // Vercel serverless function to trigger bulk queue additions
-// Adds multiple scenes to the priority queue
+// Adds multiple scenes to the priority queue using the bulk endpoint
 
 // Increase timeout for large batches (max 60s for hobby, 300s for pro)
 export const config = {
@@ -43,55 +43,68 @@ export default async function handler(req, res) {
     });
   }
 
-  const results = {
-    success: [],
-    failed: []
-  };
+  // Filter valid sceneIds
+  const validSceneIds = sceneIds.filter(id => id && typeof id === 'string' && id.trim() !== '');
+  const invalidCount = sceneIds.length - validSceneIds.length;
 
-  // Process scenes sequentially with small delay to avoid overwhelming producer
-  for (const sceneId of sceneIds) {
-    if (!sceneId || typeof sceneId !== 'string' || sceneId.trim() === '') {
-      results.failed.push({ sceneId, error: 'Invalid sceneId' });
-      continue;
-    }
+  // Build entities array for bulk endpoint
+  const entities = validSceneIds.map(sceneId => ({
+    entity: {
+      entityId: sceneId.trim(),
+      authChain: []
+    },
+    contentServerUrls: contentServerUrls || ['https://peer.decentraland.org/content']
+  }));
 
-    try {
-      const response = await fetch(`${producerUrl}/queue-task`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': tmpSecret
-        },
-        body: JSON.stringify({
-          entity: {
-            entityId: sceneId.trim(),
-            authChain: []
-          },
-          contentServerUrls: contentServerUrls || ['https://peer.decentraland.org/content'],
-          prioritize: true
-        }),
-        signal: AbortSignal.timeout(10000)
+  try {
+    // Use the bulk endpoint (POST /queue-tasks)
+    const response = await fetch(`${producerUrl}/queue-tasks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': tmpSecret
+      },
+      body: JSON.stringify({
+        entities,
+        prioritize: true
+      }),
+      signal: AbortSignal.timeout(55000) // 55s timeout (just under Vercel's 60s limit)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.status(response.status).json({
+        error: `Producer returned error: ${errorText}`
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        results.failed.push({ sceneId, error: errorText });
-      } else {
-        results.success.push(sceneId);
-      }
-    } catch (error) {
-      results.failed.push({ sceneId, error: error.message });
     }
 
-    // Delay between requests to avoid overwhelming the producer
-    await new Promise(resolve => setTimeout(resolve, 200));
-  }
+    const result = await response.json();
 
-  res.status(200).json({
-    success: true,
-    total: sceneIds.length,
-    queued: results.success.length,
-    failed: results.failed.length,
-    results
-  });
+    // Add invalid sceneIds to failed count
+    if (invalidCount > 0) {
+      result.failed = (result.failed || 0) + invalidCount;
+      result.results = result.results || { success: [], failed: [] };
+      for (let i = 0; i < invalidCount; i++) {
+        result.results.failed.push({ entityId: 'invalid', error: 'Invalid sceneId' });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      total: sceneIds.length,
+      queued: result.queued || 0,
+      failed: result.failed || 0,
+      results: result.results || { success: [], failed: [] }
+    });
+  } catch (error) {
+    console.error('Error calling bulk queue endpoint:', error);
+
+    if (error.name === 'TimeoutError') {
+      return res.status(504).json({ error: 'Request to producer timed out' });
+    }
+
+    res.status(500).json({
+      error: 'Failed to queue scenes: ' + error.message
+    });
+  }
 }
