@@ -1,6 +1,11 @@
 // Vercel serverless function to trigger bulk queue additions
 // Adds multiple scenes to the priority queue
 
+// Increase timeout for large batches (max 60s for hobby, 300s for pro)
+export const config = {
+  maxDuration: 60,
+};
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,14 +31,6 @@ export default async function handler(req, res) {
   // Validate sceneIds
   if (!sceneIds || !Array.isArray(sceneIds) || sceneIds.length === 0) {
     return res.status(400).json({ error: 'Missing or invalid sceneIds array' });
-  }
-
-  // Limit batch size to prevent abuse
-  const MAX_BATCH_SIZE = 100;
-  if (sceneIds.length > MAX_BATCH_SIZE) {
-    return res.status(400).json({
-      error: `Batch size too large. Maximum ${MAX_BATCH_SIZE} scenes per request.`
-    });
   }
 
   // Get producer configuration
@@ -86,8 +83,8 @@ export default async function handler(req, res) {
       results.failed.push({ sceneId, error: error.message });
     }
 
-    // Small delay between requests
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Delay between requests to avoid overwhelming the producer
+    await new Promise(resolve => setTimeout(resolve, 200));
   }
 
   res.status(200).json({
